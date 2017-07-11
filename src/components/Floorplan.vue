@@ -12,18 +12,14 @@ export default {
   name: 'floorplan',
   data () {
     return {
-      lineData: [
-        { 'x': 20, 'y': 20 },
-        { 'x': 20, 'y': 0 },
-        { 'x': 40, 'y': 0 },
-        { 'x': 40, 'y': 20 },
-        { 'x': 20, 'y': 20 },
-        { 'x': 20, 'y': 20 },
-        { 'x': 40, 'y': 10 },
-        { 'x': 60, 'y': 40 },
-        { 'x': 80, 'y': 5 },
-        { 'x': 100, 'y': 60 }
-      ],
+      floorplan: null,
+      multiplier: 1,
+      lights: [{
+        'is located in': 'Bathroom',
+        'x position': 30,
+        'y position': 10,
+        'on': true
+      }],
       rooms: [{
         name: 'Bathroom',
         features: {
@@ -51,12 +47,6 @@ export default {
             { 'x': 25, 'y': 1 },
             { 'x': 25, 'y': 0 },
             { 'x': 35, 'y': 0 }
-          ],
-          lights: [
-            {
-              position: { 'x': 30, 'y': 10 },
-              on: true
-            }
           ]
         }
       }, {
@@ -122,47 +112,6 @@ export default {
   },
   methods: {
     buildFloorplan () {
-      let roomMap = {
-        'Bathroom': 0,
-        'Bedroom': 1,
-        'Hallway': 2,
-        'Front Room': 3,
-        'Cupboard': 4,
-        'Building Hallway': 5
-      }
-
-      // API.getInstances('room').then(response => {
-      //   console.log(response.body)
-
-      //   for (let room of response.body) {
-      //     roomMap[room._id] = this.rooms.length
-      //     this.rooms.push({
-      //       name: room._id,
-      //       features: {}
-      //     })
-      //   }
-
-        // TODO: walls
-
-      API.getInstances('light').then(response => {
-        console.log(response.body)
-
-        for (let light of response.body) {
-          console.log(light['is located in'])
-
-          let x = light['x position']
-          let y = light['y position']
-
-          let i = roomMap[light['is located in']]
-          this.rooms[i].lights = this.rooms[i].lights ? this.rooms[i].lights : []
-          this.rooms[i].lights.push({
-            position: { 'x': x, 'y': y },
-            on: true
-          })
-        }
-        console.log(this.rooms)
-      })
-      // })
       let boundingBox = d3.select('.container').node().getBoundingClientRect()
 
       var svg = d3.select('svg#floorplan')
@@ -173,11 +122,8 @@ export default {
       var margin = {top: 50, right: 50, bottom: 50, left: 50}
       var width = +boundingBox.width - margin.left - margin.right
       var height = +boundingBox.height - margin.top - margin.bottom
-      var g = svg.append('g')
+      this.floorplan = svg.append('g')
           .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
-          // .data(this.rooms)
-
-      console.log(this.rooms)
 
       let maxX = 0
       let maxY = 0
@@ -194,19 +140,24 @@ export default {
         }
       }
 
-      let multiplier = Math.min(width / maxX, height / maxY)
+      this.multiplier = Math.min(width / maxX, height / maxY)
+
+      API.getInstances('light').then(response => {
+        this.lights = response.body
+        this.updateRooms()
+      })
 
       var lineFunction = d3.line()
-          .x(function (d) { return d.x * multiplier })
-          .y(function (d) { return d.y * multiplier })
+          .x(d => { return d.x * this.multiplier })
+          .y(d => { return d.y * this.multiplier })
       var curveFunction = d3.line()
-          .x(function (d) { return d.x * multiplier })
-          .y(function (d) { return d.y * multiplier })
+          .x(d => { return d.x * this.multiplier })
+          .y(d => { return d.y * this.multiplier })
           .curve(d3.curveBasis)
 
       // ROOMS
 
-      let room = g.selectAll('g.room')
+      let room = this.floorplan.selectAll('g.room')
         .data(this.rooms)
 
       room = room.enter().append('g')
@@ -225,9 +176,6 @@ export default {
       walls.enter().append('path')
         .attr('class', 'walls')
         .attr('d', lineFunction)
-        // .on('mouseover', function (d) {
-        //   console.log(d)
-        // })
         .merge(walls)
 
       // DOORS
@@ -267,9 +215,9 @@ export default {
         .attr('class', 'window')
         .attr('d', lineFunction)
 
-      // LIGHTS
+      // RADIAL GRADIENT
 
-      let radialGradient = g.append('defs')
+      let radialGradient = this.floorplan.append('defs')
         .append('radialGradient')
           .attr('id', 'radial-gradient')
 
@@ -287,35 +235,46 @@ export default {
           .attr('stop-color', 'white')
           .attr('stop-opacity', '0')
 
-      let light = room.selectAll('path.light')
-        .data(function (d) {
-          if (d.features.lights) {
-            return d.features.lights
-          } else {
-            return []
-          }
-        })
+      this.updateRooms()
+    },
+    updateRooms () {
+      // LIGHTS
+      let allLights = this.floorplan.append('g')
+        .attr('class', 'lights')
 
-      light.enter().append('circle')
+      // Create group for each light fitting
+      let lightGroups = allLights.selectAll('g.light-group')
+        .data(this.lights)
+
+      // ENTER
+      lightGroups = lightGroups.enter()
+        .append('g')
+        .attr('class', 'light-group')
+        .merge(lightGroups)
+
+      lightGroups.append('circle')
         .attr('class', function (d) {
           let classAttr
           if (d.on) {
-            classAttr = ' light-on'
+            classAttr = 'light-on'
           } else {
-            classAttr = ' light-off'
+            classAttr = 'light-off'
           }
           return classAttr
         })
-        .attr('cx', function (d) { return d.position.x * multiplier })
-        .attr('cy', function (d) { return d.position.y * multiplier })
-        .attr('r', 6 * multiplier)
+        .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
+        .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
+        .attr('r', 6 * this.multiplier)
         .style('fill', 'url(#radial-gradient)')
 
-      light.enter().append('circle')
+      lightGroups.append('circle')
         .attr('class', 'light')
-        .attr('cx', function (d) { return d.position.x * multiplier })
-        .attr('cy', function (d) { return d.position.y * multiplier })
-        .attr('r', 0.5 * multiplier)
+        .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
+        .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
+        .attr('r', 0.5 * this.multiplier)
+
+      // EXIT
+      lightGroups.exit().remove()
     }
   }
 }
