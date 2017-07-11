@@ -3,6 +3,6 @@ var controller = require('./services.controller')
 
 var router = express.Router()
 
-router.get('/services', controller.get)
+router.get('/instances/:concept', controller.getConceptInstances)
 
 module.exports = router

@@ -6,13 +6,12 @@
 
 <script>
 import * as d3 from 'd3'
+import API from '../services/api'
 
 export default {
-  name: 'histogram',
-  props: ['data'],
+  name: 'floorplan',
   data () {
     return {
-      hello: 'hello world',
       lineData: [
         { 'x': 20, 'y': 20 },
         { 'x': 20, 'y': 0 },
@@ -26,7 +25,7 @@ export default {
         { 'x': 100, 'y': 60 }
       ],
       rooms: [{
-        name: 'bathroom',
+        name: 'Bathroom',
         features: {
           walls: [
             { 'x': 20, 'y': 0 },
@@ -61,7 +60,7 @@ export default {
           ]
         }
       }, {
-        name: 'bedroom',
+        name: 'Bedroom',
         features: {
           walls: [
             { 'x': 40, 'y': 0 },
@@ -72,7 +71,7 @@ export default {
           ]
         }
       }, {
-        name: 'hallway',
+        name: 'Hallway',
         features: {
           walls: [
             { 'x': 10, 'y': 20 },
@@ -83,7 +82,7 @@ export default {
           ]
         }
       }, {
-        name: 'frontroom',
+        name: 'Front Room',
         features: {
           walls: [
             { 'x': 10, 'y': 30 },
@@ -94,7 +93,7 @@ export default {
           ]
         }
       }, {
-        name: 'cupboard',
+        name: 'Cupboard',
         features: {
           walls: [
             { 'x': 40, 'y': 40 },
@@ -105,7 +104,7 @@ export default {
           ]
         }
       }, {
-        name: 'entrance',
+        name: 'Building Hallway',
         features: {
           walls: [
             { 'x': 0, 'y': 20 },
@@ -123,6 +122,47 @@ export default {
   },
   methods: {
     buildFloorplan () {
+      let roomMap = {
+        'Bathroom': 0,
+        'Bedroom': 1,
+        'Hallway': 2,
+        'Front Room': 3,
+        'Cupboard': 4,
+        'Building Hallway': 5
+      }
+
+      // API.getInstances('room').then(response => {
+      //   console.log(response.body)
+
+      //   for (let room of response.body) {
+      //     roomMap[room._id] = this.rooms.length
+      //     this.rooms.push({
+      //       name: room._id,
+      //       features: {}
+      //     })
+      //   }
+
+        // TODO: walls
+
+      API.getInstances('light').then(response => {
+        console.log(response.body)
+
+        for (let light of response.body) {
+          console.log(light['is located in'])
+
+          let x = light['x position']
+          let y = light['y position']
+
+          let i = roomMap[light['is located in']]
+          this.rooms[i].lights = this.rooms[i].lights ? this.rooms[i].lights : []
+          this.rooms[i].lights.push({
+            position: { 'x': x, 'y': y },
+            on: true
+          })
+        }
+        console.log(this.rooms)
+      })
+      // })
       let boundingBox = d3.select('.container').node().getBoundingClientRect()
 
       var svg = d3.select('svg#floorplan')
