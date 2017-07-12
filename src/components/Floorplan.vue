@@ -12,99 +12,6 @@ export default {
   name: 'floorplan',
   data () {
     return {
-      floorplan: null,
-      multiplier: 1,
-      lights: [{
-        'is located in': 'Bathroom',
-        'x position': 30,
-        'y position': 10,
-        'on': true
-      }],
-      rooms: [{
-        name: 'Bathroom',
-        features: {
-          walls: [
-            { 'x': 20, 'y': 0 },
-            { 'x': 40, 'y': 0 },
-            { 'x': 40, 'y': 20 },
-            { 'x': 20, 'y': 20 },
-            { 'x': 20, 'y': 0 }
-          ],
-          door: {
-            door: [
-              { 'x': 35, 'y': 20 },
-              { 'x': 35, 'y': 15 }
-            ],
-            path: [
-              { 'x': 35, 'y': 15 },
-              { 'x': 38.5, 'y': 16.5 },
-              { 'x': 40, 'y': 20 }
-            ]
-          },
-          window: [
-            { 'x': 35, 'y': 0 },
-            { 'x': 35, 'y': 1 },
-            { 'x': 25, 'y': 1 },
-            { 'x': 25, 'y': 0 },
-            { 'x': 35, 'y': 0 }
-          ]
-        }
-      }, {
-        name: 'Bedroom',
-        features: {
-          walls: [
-            { 'x': 40, 'y': 0 },
-            { 'x': 80, 'y': 0 },
-            { 'x': 80, 'y': 40 },
-            { 'x': 40, 'y': 40 },
-            { 'x': 40, 'y': 0 }
-          ]
-        }
-      }, {
-        name: 'Hallway',
-        features: {
-          walls: [
-            { 'x': 10, 'y': 20 },
-            { 'x': 40, 'y': 20 },
-            { 'x': 40, 'y': 30 },
-            { 'x': 10, 'y': 30 },
-            { 'x': 10, 'y': 20 }
-          ]
-        }
-      }, {
-        name: 'Front Room',
-        features: {
-          walls: [
-            { 'x': 10, 'y': 30 },
-            { 'x': 40, 'y': 30 },
-            { 'x': 40, 'y': 50 },
-            { 'x': 10, 'y': 50 },
-            { 'x': 10, 'y': 30 }
-          ]
-        }
-      }, {
-        name: 'Cupboard',
-        features: {
-          walls: [
-            { 'x': 40, 'y': 40 },
-            { 'x': 50, 'y': 40 },
-            { 'x': 50, 'y': 50 },
-            { 'x': 40, 'y': 50 },
-            { 'x': 40, 'y': 40 }
-          ]
-        }
-      }, {
-        name: 'Building Hallway',
-        features: {
-          walls: [
-            { 'x': 0, 'y': 20 },
-            { 'x': 10, 'y': 20 },
-            { 'x': 10, 'y': 50 },
-            { 'x': 0, 'y': 50 },
-            { 'x': 0, 'y': 20 }
-          ]
-        }
-      }]
     }
   },
   mounted () {
@@ -128,92 +35,101 @@ export default {
       let maxX = 0
       let maxY = 0
 
-      for (let room of this.rooms) {
-        let walls = room.features.walls
-        for (let wall of walls) {
-          if (wall.x > maxX) {
-            maxX = wall.x
-          }
-          if (wall.y > maxY) {
-            maxY = wall.y
-          }
-        }
-      }
-
-      this.multiplier = Math.min(width / maxX, height / maxY)
-
-      API.getInstances('light').then(response => {
-        this.lights = response.body
-        this.updateRooms()
-      })
-
-      var lineFunction = d3.line()
-          .x(d => { return d.x * this.multiplier })
-          .y(d => { return d.y * this.multiplier })
-      var curveFunction = d3.line()
-          .x(d => { return d.x * this.multiplier })
-          .y(d => { return d.y * this.multiplier })
-          .curve(d3.curveBasis)
-
       // ROOMS
-
-      let room = this.floorplan.selectAll('g.room')
-        .data(this.rooms)
-
-      room = room.enter().append('g')
-        .attr('class', function (d) {
-          return 'room ' + d.name
-        })
-        .merge(room)
-
-      room.exit().remove()
-
-      // WALLS
-
-      let walls = room.selectAll('path.walls')
-        .data(function (d) { return [d.features.walls] })
-
-      walls.enter().append('path')
-        .attr('class', 'walls')
-        .attr('d', lineFunction)
-        .merge(walls)
+      let rooms = this.floorplan.append('g')
+        .attr('class', 'rooms')
 
       // DOORS
-
-      let door = room.selectAll('path.door')
-        .data(function (d) {
-          if (d.features.door) {
-            return [d.features.door]
-          } else {
-            return []
-          }
-        })
-
-      door.enter().append('path')
-        .attr('class', 'door')
-        .attr('d', function (d) {
-          return lineFunction(d.door)
-        })
-      door.enter().append('path')
-        .attr('class', 'door-path')
-        .attr('d', function (d) {
-          return curveFunction(d.path)
-        })
+      let doors = this.floorplan.append('g')
+        .attr('class', 'doors')
 
       // WINDOWS
+      let windows = this.floorplan.append('g')
+        .attr('class', 'windows')
 
-      let window = room.selectAll('path.window')
-        .data(function (d) {
-          if (d.features.window) {
-            return [d.features.window]
-          } else {
-            return []
+      // LIGHTS
+      let lights = this.floorplan.append('g')
+        .attr('class', 'lights')
+
+      // CAMERAS
+      let cameras = this.floorplan.append('g')
+        .attr('class', 'cameras')
+
+      API.getInstances('room').then(response => {
+        let newRooms = response.body
+
+        newRooms = newRooms.map(room => {
+          room.dimensions = JSON.parse(room.dimensions)
+
+          // Find max X and Y dimensions
+          for (let dimension of room.dimensions) {
+            if (dimension[0] > maxX) {
+              maxX = dimension[0]
+            }
+            if (dimension[1] > maxY) {
+              maxY = dimension[1]
+            }
           }
+
+          this.center = [maxX / 2, maxY / 2]
+
+          // Add first dimension to the array to close the polygon when drawing
+          room.dimensions.push(room.dimensions[0])
+          return room
+        })
+        console.log(this.center)
+
+        this.rooms = newRooms
+
+        // Calculate multiplier to calculate transformations
+        this.multiplier = Math.min(width / maxX, height / maxY)
+
+        this.lineFunction = d3.line()
+            .x(d => { return d[0] * this.multiplier })
+            .y(d => { return d[1] * this.multiplier })
+        this.curveFunction = d3.line()
+            .x(d => { return d[0] * this.multiplier })
+            .y(d => { return d[1] * this.multiplier })
+            .curve(d3.curveBasis)
+
+        this.updateRooms(rooms)
+
+        API.getInstances('light').then(response => {
+          this.lights = response.body
+          this.updateLights(lights)
         })
 
-      window.enter().append('path')
-        .attr('class', 'window')
-        .attr('d', lineFunction)
+        API.getInstances('door').then(response => {
+          let newDoors = response.body
+
+          newDoors = newDoors.map(door => {
+            door.dimensions = JSON.parse(door.dimensions)
+            return door
+          })
+
+          this.doors = newDoors
+
+          this.updateDoors(doors)
+        })
+
+        API.getInstances('window').then(response => {
+          let newWindows = response.body
+
+          newWindows = newWindows.map(window => {
+            window.dimensions = JSON.parse(window.dimensions)
+            return window
+          })
+
+          this.windows = newWindows
+
+          this.updateWindows(windows)
+        })
+
+        API.getInstances('camera').then(response => {
+          this.cameras = response.body
+          this.updateCameras(cameras)
+        })
+      })
 
       // RADIAL GRADIENT
 
@@ -234,25 +150,115 @@ export default {
           .attr('offset', '100%')
           .attr('stop-color', 'white')
           .attr('stop-opacity', '0')
-
-      this.updateRooms()
     },
-    updateRooms () {
-      // LIGHTS
-      let allLights = this.floorplan.append('g')
-        .attr('class', 'lights')
+    updateRooms (rooms) {
+      // Create group for each room
+      let room = rooms.selectAll('g.room')
+        .data(this.rooms)
 
-      // Create group for each light fitting
-      let lightGroups = allLights.selectAll('g.light-group')
+      // ENTER
+      room = room.enter()
+        .append('g')
+        .attr('class', function (d) {
+          return 'room ' + d._id
+        })
+        .merge(room)
+
+      room.append('path')
+        .attr('class', 'walls')
+        .attr('d', d => {
+          return this.lineFunction(d.dimensions)
+        })
+
+      room.exit().remove()
+    },
+    updateDoors (doors) {
+      let door = doors.selectAll('path.door')
+        .data(this.doors)
+
+      door = door.enter()
+        .append('g')
+        .attr('class', 'door-group')
+        .merge(door)
+
+      door.append('path')
+        .attr('class', 'door closed-door')
+        .attr('d', d => {
+          return this.lineFunction(d.dimensions)
+        })
+
+      door.append('path')
+        .attr('class', 'door open-door')
+        .attr('d', d => {
+          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+          let facingAway
+
+          if (horizontal) {
+            facingAway = d.dimensions[0][1] <= this.center[1]
+          } else {
+            facingAway = d.dimensions[0][0] <= this.center[0]
+          }
+
+          let multiplier = facingAway ? 1 : -1
+          let openDoorDimensions = [d.dimensions[0]]
+
+          if (horizontal) {
+            openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+          } else {
+            openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+          }
+
+          return this.lineFunction(openDoorDimensions)
+        })
+
+      door.append('path')
+        .attr('class', 'door-path')
+        .attr('d', d => {
+          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+          let facingAway
+
+          if (horizontal) {
+            facingAway = d.dimensions[0][1] <= this.center[1]
+          } else {
+            facingAway = d.dimensions[0][0] <= this.center[0]
+          }
+
+          let multiplier = facingAway ? 1 : -1
+          let doorPath = [d.dimensions[1]]
+
+          if (horizontal) {
+            doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
+            doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+          } else {
+            doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
+            doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+          }
+
+          return this.curveFunction(doorPath)
+        })
+    },
+    updateWindows (windows) {
+      let window = windows.selectAll('g.window')
+        .data(this.windows)
+
+      window.enter()
+        .append('path')
+        .attr('class', 'window')
+        .attr('d', d => {
+          return this.lineFunction(d.dimensions)
+        })
+    },
+    updateLights (lights) {
+      let light = lights.selectAll('g.light-group')
         .data(this.lights)
 
       // ENTER
-      lightGroups = lightGroups.enter()
+      light = light.enter()
         .append('g')
         .attr('class', 'light-group')
-        .merge(lightGroups)
+        .merge(light)
 
-      lightGroups.append('circle')
+      light.append('circle')
         .attr('class', function (d) {
           let classAttr
           if (d.on) {
@@ -267,14 +273,49 @@ export default {
         .attr('r', 6 * this.multiplier)
         .style('fill', 'url(#radial-gradient)')
 
-      lightGroups.append('circle')
+      light.append('circle')
         .attr('class', 'light')
         .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
         .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
         .attr('r', 0.5 * this.multiplier)
 
       // EXIT
-      lightGroups.exit().remove()
+      light.exit().remove()
+    },
+    updateCameras (cameras) {
+      let camera = cameras.selectAll('g.camera-group')
+        .data(this.cameras)
+
+      camera = camera.enter()
+        .append('g')
+        .attr('class', 'camera-group')
+
+      camera.append('path')
+        .attr('class', 'camera-view')
+        .attr('d', d => {
+          let cx = parseInt(d['x position'])
+          let cy = parseInt(d['y position'])
+          let orientation = parseInt(d['orientation'])
+
+          let r0 = (orientation - 40) * (Math.PI / 180)
+          let r1 = (orientation + 40) * (Math.PI / 180)
+
+          let startX = -1.5 * Math.sin(-r0) + cx
+          let startY = -1.5 * Math.cos(-r0) + cy
+
+          let endX = -1.5 * Math.sin(-r1) + cx
+          let endY = -1.5 * Math.cos(-r1) + cy
+
+          let cameraView = [[startX, startY], [cx, cy], [endX, endY]]
+
+          return this.lineFunction(cameraView)
+        })
+
+      camera.append('circle')
+        .attr('class', 'camera')
+        .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
+        .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
+        .attr('r', 0.3 * this.multiplier)
     }
   }
 }
@@ -297,13 +338,19 @@ export default {
     fill: #efd697; //#ad9a6b;
   }
 
+  .door {
+    stroke: #cc993c;
+    stroke-width: 4px;
+  }
+
   .door-path {
     stroke-width: 1px;
     stroke-dasharray: 2, 2;
   }
 
   .window {
-    fill: white;
+    stroke: #e4e4e4;
+    stroke-width: 12px;
   }
 
   .light {
@@ -318,5 +365,17 @@ export default {
 
   .light-off {
     display: none;
+  }
+
+  .camera {
+    fill: #ff4545;
+    stroke: black;
+    stroke-width: 2px;
+  }
+
+  .camera-view {
+    stroke: #888888;
+    stroke-dasharray: 4, 2;
+    stroke-width: 1px;
   }
 </style>
