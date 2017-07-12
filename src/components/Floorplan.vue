@@ -1,6 +1,9 @@
 <template>
   <div class="container">
-    <svg id='floorplan'></svg>
+    <svg id="floorplan"></svg>
+    <div class="tooltip">
+      <h3 id="room-name"></h3>
+    </div>
   </div>
 </template>
 
@@ -35,25 +38,18 @@ export default {
       let maxX = 0
       let maxY = 0
 
-      // ROOMS
       let rooms = this.floorplan.append('g')
         .attr('class', 'rooms')
-
-      // DOORS
       let doors = this.floorplan.append('g')
         .attr('class', 'doors')
-
-      // WINDOWS
       let windows = this.floorplan.append('g')
         .attr('class', 'windows')
-
-      // LIGHTS
       let lights = this.floorplan.append('g')
         .attr('class', 'lights')
-
-      // CAMERAS
       let cameras = this.floorplan.append('g')
         .attr('class', 'cameras')
+      let sensors = this.floorplan.append('g')
+        .attr('class', 'sensors')
 
       API.getInstances('room').then(response => {
         let newRooms = response.body
@@ -77,7 +73,6 @@ export default {
           room.dimensions.push(room.dimensions[0])
           return room
         })
-        console.log(this.center)
 
         this.rooms = newRooms
 
@@ -94,40 +89,18 @@ export default {
 
         this.updateRooms(rooms)
 
-        API.getInstances('light').then(response => {
-          this.lights = response.body
-          this.updateLights(lights)
-        })
-
-        API.getInstances('door').then(response => {
-          let newDoors = response.body
-
-          newDoors = newDoors.map(door => {
-            door.dimensions = JSON.parse(door.dimensions)
-            return door
-          })
-
-          this.doors = newDoors
-
-          this.updateDoors(doors)
-        })
-
-        API.getInstances('window').then(response => {
-          let newWindows = response.body
-
-          newWindows = newWindows.map(window => {
-            window.dimensions = JSON.parse(window.dimensions)
-            return window
-          })
-
-          this.windows = newWindows
-
-          this.updateWindows(windows)
-        })
+        this.getLights(lights)
+        this.getDoors(doors)
+        this.getWindows(windows)
 
         API.getInstances('camera').then(response => {
           this.cameras = response.body
           this.updateCameras(cameras)
+        })
+
+        API.getInstances('temperature sensor').then(response => {
+          this.temperatureSensors = response.body
+          this.updateTemperatureSensors(sensors)
         })
       })
 
@@ -151,6 +124,82 @@ export default {
           .attr('stop-color', 'white')
           .attr('stop-opacity', '0')
     },
+    getLights (lights) {
+      API.getInstances('light').then(response => {
+        this.lights = response.body
+
+        API.getInstances('light state change').then(response => {
+          let stateChanges = response.body
+          let lightMap = {}
+
+          for (let i = 0; i < this.lights.length; ++i) {
+            let light = this.lights[i]
+            lightMap[light._id] = i
+          }
+
+          for (let sc of stateChanges) {
+            let i = lightMap[sc['applies to']]
+            let light = this.lights[i]
+            let ts = parseInt(sc.timestamp, 10)
+
+            if (!light.lastUpdated || light.lastUpdated <= ts) {
+              light.on = sc['current state'] === 'On'
+              light.lastUpdated = ts
+            }
+          }
+
+          this.updateLights(lights)
+        })
+      })
+    },
+    getDoors (doors) {
+      API.getInstances('door').then(response => {
+        let newDoors = response.body
+        let doorMap = {}
+
+        newDoors = newDoors.map((door, i) => {
+          door.dimensions = JSON.parse(door.dimensions)
+          door.open = true
+          doorMap[door._id + ' Sensor'] = i
+          return door
+        })
+
+        this.doors = newDoors
+
+        API.getInstances('door sensor state change').then(response => {
+          let stateChanges = response.body
+
+          for (let sc of stateChanges) {
+            let i = doorMap[sc['applies to']]
+            let door = this.doors[i]
+            let ts = parseInt(sc.timestamp, 10)
+
+            if (!door.lastUpdated || door.lastUpdated <= ts) {
+              door.open = sc['current state'] === 'Open'
+              door.lastUpdated = ts
+            }
+          }
+
+          console.log(this.doors)
+
+          this.updateDoors(doors)
+        })
+      })
+    },
+    getWindows (windows) {
+      API.getInstances('window').then(response => {
+        let newWindows = response.body
+
+        newWindows = newWindows.map(window => {
+          window.dimensions = JSON.parse(window.dimensions)
+          return window
+        })
+
+        this.windows = newWindows
+
+        this.updateWindows(windows)
+      })
+    },
     updateRooms (rooms) {
       // Create group for each room
       let room = rooms.selectAll('g.room')
@@ -164,11 +213,33 @@ export default {
         })
         .merge(room)
 
+      let mouseenter = d => {
+        d3.select('.tooltip')
+          .style('display', 'inline')
+
+        d3.select('#room-name')
+          .text(d._id)
+      }
+
+      let mouseleave = d => {
+        d3.select('.tooltip')
+          .style('display', 'none')
+      }
+
+      let mousemove = d => {
+        d3.select('.tooltip')
+          .style('left', (d3.event.pageX + 20) + 'px')
+          .style('top', (d3.event.pageY + 20) + 'px')
+      }
+
       room.append('path')
         .attr('class', 'walls')
         .attr('d', d => {
           return this.lineFunction(d.dimensions)
         })
+        .on('mouseenter', mouseenter)
+        .on('mousemove', mousemove)
+        .on('mouseleave', mouseleave)
 
       room.exit().remove()
     },
@@ -178,63 +249,75 @@ export default {
 
       door = door.enter()
         .append('g')
-        .attr('class', 'door-group')
+        .attr('class', d => {
+          let classes = 'door-group'
+          if (d.open) {
+            classes += ' door-open'
+          } else {
+            classes += ' door-closed'
+          }
+          return classes
+        })
         .merge(door)
 
       door.append('path')
-        .attr('class', 'door closed-door')
+        .attr('class', 'door door-closed-path')
         .attr('d', d => {
           return this.lineFunction(d.dimensions)
         })
 
       door.append('path')
-        .attr('class', 'door open-door')
+        .attr('class', 'door door-open-path')
         .attr('d', d => {
-          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-          let facingAway
+          if (d.open) {
+            let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+            let facingAway
 
-          if (horizontal) {
-            facingAway = d.dimensions[0][1] <= this.center[1]
-          } else {
-            facingAway = d.dimensions[0][0] <= this.center[0]
+            if (horizontal) {
+              facingAway = d.dimensions[0][1] <= this.center[1]
+            } else {
+              facingAway = d.dimensions[0][0] <= this.center[0]
+            }
+
+            let multiplier = facingAway ? 1 : -1
+            let openDoorDimensions = [d.dimensions[0]]
+
+            if (horizontal) {
+              openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+            } else {
+              openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+            }
+
+            return this.lineFunction(openDoorDimensions)
           }
-
-          let multiplier = facingAway ? 1 : -1
-          let openDoorDimensions = [d.dimensions[0]]
-
-          if (horizontal) {
-            openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
-          } else {
-            openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
-          }
-
-          return this.lineFunction(openDoorDimensions)
         })
 
       door.append('path')
         .attr('class', 'door-path')
         .attr('d', d => {
-          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-          let facingAway
+          if (d.open) {
+            let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+            let facingAway
 
-          if (horizontal) {
-            facingAway = d.dimensions[0][1] <= this.center[1]
-          } else {
-            facingAway = d.dimensions[0][0] <= this.center[0]
+            if (horizontal) {
+              facingAway = d.dimensions[0][1] <= this.center[1]
+            } else {
+              facingAway = d.dimensions[0][0] <= this.center[0]
+            }
+
+            let multiplier = facingAway ? 1 : -1
+            let doorPath = [d.dimensions[1]]
+
+            if (horizontal) {
+              doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
+              doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+            } else {
+              doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
+              doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+            }
+
+            return this.curveFunction(doorPath)
           }
-
-          let multiplier = facingAway ? 1 : -1
-          let doorPath = [d.dimensions[1]]
-
-          if (horizontal) {
-            doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
-            doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
-          } else {
-            doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
-            doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
-          }
-
-          return this.curveFunction(doorPath)
         })
     },
     updateWindows (windows) {
@@ -316,6 +399,20 @@ export default {
         .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
         .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
         .attr('r', 0.3 * this.multiplier)
+    },
+    updateTemperatureSensors (sensors) {
+      let sensor = sensors.selectAll('g.sensor-group')
+        .data(this.temperatureSensors)
+
+      sensor = sensor.enter()
+        .append('g')
+        .attr('class', 'sensor-group')
+
+      sensor.append('circle')
+        .attr('class', 'sensor')
+        .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
+        .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
+        .attr('r', 0.3 * this.multiplier)
     }
   }
 }
@@ -326,6 +423,15 @@ export default {
   .container {
     display: inline-block;
     height: 100%;
+  }
+
+  .tooltip {
+    position: absolute;
+    z-index: 10;
+    background: white;
+    border: 2px solid black;
+    display: none;
+    padding: 0 10px;
   }
 
   path {
@@ -346,6 +452,12 @@ export default {
   .door-path {
     stroke-width: 1px;
     stroke-dasharray: 2, 2;
+  }
+
+  .door-open {
+    .door-closed-path {
+      stroke: #efd697;
+    }
   }
 
   .window {
@@ -377,5 +489,11 @@ export default {
     stroke: #888888;
     stroke-dasharray: 4, 2;
     stroke-width: 1px;
+  }
+
+  .sensor {
+    fill: green;
+    stroke: black;
+    stroke-width: 2px;
   }
 </style>
