@@ -23,8 +23,8 @@ export default {
   mounted () {
     this.buildFloorplan()
     Observer.registerCallback(() => {
-      console.log('callback')
       this.getLightStateChanges()
+      this.getDoorStateChanges()
     })
   },
   methods: {
@@ -160,41 +160,41 @@ export default {
           }
         }
 
-        setTimeout(() => {
-          this.updateLights()
-        }, 500)
+        this.updateLights()
       })
     },
     getDoors () {
       API.getInstances('door').then(response => {
         let newDoors = response.body
-        let doorMap = {}
+        this.doorMap = {}
 
         newDoors = newDoors.map((door, i) => {
           door.dimensions = JSON.parse(door.dimensions)
           door.open = true
-          doorMap[door._id + ' Sensor'] = i
+          this.doorMap[door._id + ' Sensor'] = i
           return door
         })
 
         this.doors = newDoors
+        this.getDoorStateChanges()
+      })
+    },
+    getDoorStateChanges () {
+      API.getInstances('door sensor state change').then(response => {
+        let stateChanges = response.body
 
-        API.getInstances('door sensor state change').then(response => {
-          let stateChanges = response.body
+        for (let sc of stateChanges) {
+          let i = this.doorMap[sc['applies to']]
+          let door = this.doors[i]
+          let ts = parseInt(sc.timestamp, 10)
 
-          for (let sc of stateChanges) {
-            let i = doorMap[sc['applies to']]
-            let door = this.doors[i]
-            let ts = parseInt(sc.timestamp, 10)
-
-            if (!door.lastUpdated || door.lastUpdated <= ts) {
-              door.open = sc['current state'] === 'Open'
-              door.lastUpdated = ts
-            }
+          if (!door.lastUpdated || door.lastUpdated <= ts) {
+            door.open = sc['current state'] === 'Open'
+            door.lastUpdated = ts
           }
+        }
 
-          this.updateDoors()
-        })
+        this.updateDoors()
       })
     },
     getWindows () {
@@ -280,9 +280,75 @@ export default {
       room.exit().remove()
     },
     updateDoors () {
-      let door = this.doorsGroup.selectAll('path.door')
+      let door = this.doorsGroup.selectAll('g.door-group')
         .data(this.doors, d => { return d._id })
 
+      let getDoorLine = d => {
+        if (d.open) {
+          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+          let facingAway
+
+          if (horizontal) {
+            facingAway = d.dimensions[0][1] <= this.center[1]
+          } else {
+            facingAway = d.dimensions[0][0] <= this.center[0]
+          }
+
+          let multiplier = facingAway ? 1 : -1
+          let openDoorDimensions = [d.dimensions[0]]
+
+          if (horizontal) {
+            openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+          } else {
+            openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+          }
+
+          return this.lineFunction(openDoorDimensions)
+        } else {
+          return this.lineFunction(d.dimensions)
+        }
+      }
+
+      let getDoorPathCurve = d => {
+        if (d.open) {
+          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
+          let facingAway
+
+          if (horizontal) {
+            facingAway = d.dimensions[0][1] <= this.center[1]
+          } else {
+            facingAway = d.dimensions[0][0] <= this.center[0]
+          }
+
+          let multiplier = facingAway ? 1 : -1
+          let doorPath = [d.dimensions[1]]
+
+          if (horizontal) {
+            doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
+            doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+          } else {
+            doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
+            doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+          }
+
+          return this.curveFunction(doorPath)
+        }
+      }
+
+      // UPDATE
+      door.selectAll('path.door')
+        .transition().duration(this.transitionDuration)
+        .attr('d', d => {
+          return getDoorLine(d)
+        })
+
+      door.selectAll('path.door-path')
+        .transition().duration(this.transitionDuration)
+        .attr('d', d => {
+          return getDoorPathCurve(d)
+        })
+
+      // ENTER
       door = door.enter()
         .append('g')
         .attr('class', d => {
@@ -297,67 +363,30 @@ export default {
         .on('mouseenter', this.mouseenter)
         .on('mousemove', this.mousemove)
         .on('mouseleave', this.mouseleave)
-        .merge(door)
 
       door.append('path')
-        .attr('class', 'door door-closed-path')
+        .attr('class', 'door-floor')
         .attr('d', d => {
           return this.lineFunction(d.dimensions)
         })
 
       door.append('path')
-        .attr('class', 'door door-open-path')
+        .attr('class', 'door')
         .attr('d', d => {
-          if (d.open) {
-            let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-            let facingAway
-
-            if (horizontal) {
-              facingAway = d.dimensions[0][1] <= this.center[1]
-            } else {
-              facingAway = d.dimensions[0][0] <= this.center[0]
-            }
-
-            let multiplier = facingAway ? 1 : -1
-            let openDoorDimensions = [d.dimensions[0]]
-
-            if (horizontal) {
-              openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
-            } else {
-              openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
-            }
-
-            return this.lineFunction(openDoorDimensions)
-          }
+          return getDoorLine(d)
         })
 
       door.append('path')
         .attr('class', 'door-path')
         .attr('d', d => {
-          if (d.open) {
-            let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-            let facingAway
-
-            if (horizontal) {
-              facingAway = d.dimensions[0][1] <= this.center[1]
-            } else {
-              facingAway = d.dimensions[0][0] <= this.center[0]
-            }
-
-            let multiplier = facingAway ? 1 : -1
-            let doorPath = [d.dimensions[1]]
-
-            if (horizontal) {
-              doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
-              doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
-            } else {
-              doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
-              doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
-            }
-
-            return this.curveFunction(doorPath)
-          }
+          return getDoorPathCurve(d)
         })
+
+      // ENTER + UPDATE
+      door = door.merge(door)
+
+      // EXIT
+      door.exit().remove()
     },
     updateWindows () {
       let window = this.windowsGroup.selectAll('g.window')
@@ -523,10 +552,9 @@ export default {
     stroke-dasharray: 2, 2;
   }
 
-  .door-open {
-    .door-closed-path {
-      stroke: $floor;
-    }
+  .door-floor {
+    stroke: $floor;
+    stroke-width: 1.5px;
   }
 
   .window {

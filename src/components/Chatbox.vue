@@ -27,7 +27,7 @@ export default {
   name: 'chatbox',
   data () {
     return {
-      message: 'switch on bathroom overheads',
+      message: 'open front door',
       messages: [{
         sender: 'hudson',
         text: 'hello'
