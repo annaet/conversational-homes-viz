@@ -34,7 +34,17 @@ export default {
       }, {
         sender: 'user',
         text: 'hi!'
-      }]
+      }],
+      openingMessages: [
+        'open',
+        'close'
+      ],
+      switchingMessages: [
+        'switch on',
+        'switch off',
+        'turn on',
+        'turn off'
+      ]
     }
   },
   mounted () {
@@ -83,14 +93,6 @@ export default {
             }
           }
         }
-        // console.log(' === actions === ')
-        // console.log(actions)
-        // console.log(' === opening things === ')
-        // console.log(openingThings)
-        // console.log(' === switching things === ')
-        // console.log(switchingThings)
-        // console.log(' === devices === ')
-        // console.log(devices)
 
         if (openingThings.length) {
           this.handleOpeningThings(actions, openingThings)
@@ -102,7 +104,7 @@ export default {
     },
     handleOpeningThings (actions, openingThings) {
       for (let action of actions) {
-        if (action._id === 'open' || action._id === 'close') {
+        if (this.openingMessages.indexOf(action._id) > -1) {
           let actionName = action._id === 'open' ? 'Open' : 'Close'
 
           for (let openingThing of openingThings) {
@@ -160,8 +162,8 @@ export default {
     },
     handleSwitchingThings (actions, switchingThings) {
       for (let action of actions) {
-        if (action._id === 'switch on' || action._id === 'switch off') {
-          let actionName = action._id === 'switch on' ? 'On' : 'Off'
+        if (this.switchingMessages.indexOf(action._id) > -1) {
+          let actionName = action._id.indexOf('on') > -1 ? 'On' : 'Off'
 
           for (let switchingThing of switchingThings) {
             API.getInstance(switchingThing._id).then(response => {
