@@ -13,6 +13,36 @@ let getConceptInstances = (req, res) => {
   })
 }
 
+let getInstance = (req, res) => {
+  request.get(endpoint + 'instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
+    if (err) {
+      console.log(err)
+      return
+    }
+
+    var json = JSON.parse(body)
+    res.send(json)
+  })
+}
+
+let sendMessage = (req, res) => {
+  request({
+    url: endpoint + '/special/hudson/interpreter',
+    method: 'POST',
+    body: req.body.text
+  }, (err, response, body) => {
+    if (err) {
+      console.log(err)
+      return
+    }
+
+    var json = JSON.parse(body)
+    res.send(json)
+  })
+}
+
 module.exports = {
-  getConceptInstances: getConceptInstances
+  getConceptInstances: getConceptInstances,
+  getInstance: getInstance,
+  sendMessage: sendMessage
 }

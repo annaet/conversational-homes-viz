@@ -3,6 +3,7 @@
     <svg id="floorplan"></svg>
     <div class="tooltip">
       <h3 id="room-name"></h3>
+      <p id="details"></p>
     </div>
   </div>
 </template>
@@ -10,15 +11,21 @@
 <script>
 import * as d3 from 'd3'
 import API from '../services/api'
+import Observer from '../services/observer'
 
 export default {
   name: 'floorplan',
   data () {
     return {
+      transitionDuration: 1500
     }
   },
   mounted () {
     this.buildFloorplan()
+    Observer.registerCallback(() => {
+      console.log('callback')
+      this.getLightStateChanges()
+    })
   },
   methods: {
     buildFloorplan () {
@@ -29,7 +36,7 @@ export default {
       svg.attr('width', +boundingBox.width)
       svg.attr('height', +boundingBox.height)
 
-      var margin = {top: 50, right: 50, bottom: 50, left: 50}
+      var margin = {top: 100, right: 100, bottom: 150, left: 100}
       var width = +boundingBox.width - margin.left - margin.right
       var height = +boundingBox.height - margin.top - margin.bottom
       this.floorplan = svg.append('g')
@@ -38,17 +45,17 @@ export default {
       let maxX = 0
       let maxY = 0
 
-      let rooms = this.floorplan.append('g')
+      this.roomsGroup = this.floorplan.append('g')
         .attr('class', 'rooms')
-      let doors = this.floorplan.append('g')
+      this.doorsGroup = this.floorplan.append('g')
         .attr('class', 'doors')
-      let windows = this.floorplan.append('g')
+      this.windowsGroup = this.floorplan.append('g')
         .attr('class', 'windows')
-      let lights = this.floorplan.append('g')
+      this.lightsGroup = this.floorplan.append('g')
         .attr('class', 'lights')
-      let cameras = this.floorplan.append('g')
+      this.camerasGroup = this.floorplan.append('g')
         .attr('class', 'cameras')
-      let sensors = this.floorplan.append('g')
+      this.sensorsGroup = this.floorplan.append('g')
         .attr('class', 'sensors')
 
       API.getInstances('room').then(response => {
@@ -87,20 +94,20 @@ export default {
             .y(d => { return d[1] * this.multiplier })
             .curve(d3.curveBasis)
 
-        this.updateRooms(rooms)
+        this.updateRooms()
 
-        this.getLights(lights)
-        this.getDoors(doors)
-        this.getWindows(windows)
+        this.getLights()
+        this.getDoors()
+        this.getWindows()
 
         API.getInstances('camera').then(response => {
           this.cameras = response.body
-          this.updateCameras(cameras)
+          this.updateCameras()
         })
 
         API.getInstances('temperature sensor').then(response => {
           this.temperatureSensors = response.body
-          this.updateTemperatureSensors(sensors)
+          this.updateTemperatureSensors()
         })
       })
 
@@ -124,35 +131,41 @@ export default {
           .attr('stop-color', 'white')
           .attr('stop-opacity', '0')
     },
-    getLights (lights) {
+    getLights () {
       API.getInstances('light').then(response => {
         this.lights = response.body
+        this.lightMap = {}
 
-        API.getInstances('light state change').then(response => {
-          let stateChanges = response.body
-          let lightMap = {}
+        for (let i = 0; i < this.lights.length; ++i) {
+          let light = this.lights[i]
+          light.on = false
+          this.lightMap[light._id] = i
+        }
 
-          for (let i = 0; i < this.lights.length; ++i) {
-            let light = this.lights[i]
-            lightMap[light._id] = i
-          }
-
-          for (let sc of stateChanges) {
-            let i = lightMap[sc['applies to']]
-            let light = this.lights[i]
-            let ts = parseInt(sc.timestamp, 10)
-
-            if (!light.lastUpdated || light.lastUpdated <= ts) {
-              light.on = sc['current state'] === 'On'
-              light.lastUpdated = ts
-            }
-          }
-
-          this.updateLights(lights)
-        })
+        this.getLightStateChanges()
       })
     },
-    getDoors (doors) {
+    getLightStateChanges () {
+      API.getInstances('light state change').then(response => {
+        let stateChanges = response.body
+
+        for (let sc of stateChanges) {
+          let i = this.lightMap[sc['applies to']]
+          let light = this.lights[i]
+          let ts = parseInt(sc.timestamp, 10)
+
+          if (!light.lastUpdated || light.lastUpdated < ts) {
+            light.on = sc['current state'] === 'On'
+            light.lastUpdated = ts
+          }
+        }
+
+        setTimeout(() => {
+          this.updateLights()
+        }, 500)
+      })
+    },
+    getDoors () {
       API.getInstances('door').then(response => {
         let newDoors = response.body
         let doorMap = {}
@@ -180,30 +193,72 @@ export default {
             }
           }
 
-          console.log(this.doors)
-
-          this.updateDoors(doors)
+          this.updateDoors()
         })
       })
     },
-    getWindows (windows) {
+    getWindows () {
       API.getInstances('window').then(response => {
         let newWindows = response.body
+        let windowMap = {}
 
-        newWindows = newWindows.map(window => {
+        newWindows = newWindows.map((window, i) => {
           window.dimensions = JSON.parse(window.dimensions)
+          window.open = true
+          windowMap[window._id + ' Sensor'] = i
           return window
         })
 
         this.windows = newWindows
 
-        this.updateWindows(windows)
+        API.getInstances('window sensor state change').then(response => {
+          let stateChanges = response.body
+
+          for (let sc of stateChanges) {
+            let i = windowMap[sc['applies to']]
+            let window = this.windows[i]
+            let ts = parseInt(sc.timestamp, 10)
+
+            if (!window.lastUpdated || window.lastUpdated <= ts) {
+              window.open = sc['current state'] === 'Open'
+              window.lastUpdated = ts
+            }
+          }
+
+          this.updateWindows()
+        })
       })
     },
-    updateRooms (rooms) {
+    mouseenter (d) {
+      let tooltip = d3.select('.tooltip')
+        .style('display', 'inline')
+
+      tooltip.select('#room-name')
+        .text(d._id)
+
+      tooltip.select('#details')
+        .text(() => {
+          if (typeof d.on === 'boolean') {
+            return d.on ? 'Turned on' : 'Turned off'
+          }
+          if (typeof d.open === 'boolean') {
+            return d.open ? 'Open' : 'Closed'
+          }
+        })
+    },
+    mouseleave (d) {
+      d3.select('.tooltip')
+        .style('display', 'none')
+    },
+    mousemove (d) {
+      d3.select('.tooltip')
+        .style('left', (d3.event.pageX + 20) + 'px')
+        .style('top', (d3.event.pageY + 20) + 'px')
+    },
+    updateRooms () {
       // Create group for each room
-      let room = rooms.selectAll('g.room')
-        .data(this.rooms)
+      let room = this.roomsGroup.selectAll('g.room')
+        .data(this.rooms, d => { return d._id })
 
       // ENTER
       room = room.enter()
@@ -213,39 +268,20 @@ export default {
         })
         .merge(room)
 
-      let mouseenter = d => {
-        d3.select('.tooltip')
-          .style('display', 'inline')
-
-        d3.select('#room-name')
-          .text(d._id)
-      }
-
-      let mouseleave = d => {
-        d3.select('.tooltip')
-          .style('display', 'none')
-      }
-
-      let mousemove = d => {
-        d3.select('.tooltip')
-          .style('left', (d3.event.pageX + 20) + 'px')
-          .style('top', (d3.event.pageY + 20) + 'px')
-      }
-
       room.append('path')
         .attr('class', 'walls')
         .attr('d', d => {
           return this.lineFunction(d.dimensions)
         })
-        .on('mouseenter', mouseenter)
-        .on('mousemove', mousemove)
-        .on('mouseleave', mouseleave)
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
 
       room.exit().remove()
     },
-    updateDoors (doors) {
-      let door = doors.selectAll('path.door')
-        .data(this.doors)
+    updateDoors () {
+      let door = this.doorsGroup.selectAll('path.door')
+        .data(this.doors, d => { return d._id })
 
       door = door.enter()
         .append('g')
@@ -258,6 +294,9 @@ export default {
           }
           return classes
         })
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
         .merge(door)
 
       door.append('path')
@@ -320,41 +359,57 @@ export default {
           }
         })
     },
-    updateWindows (windows) {
-      let window = windows.selectAll('g.window')
-        .data(this.windows)
+    updateWindows () {
+      let window = this.windowsGroup.selectAll('g.window')
+        .data(this.windows, d => { return d._id })
 
       window.enter()
         .append('path')
-        .attr('class', 'window')
+        .attr('class', d => {
+          let classes = 'window'
+          if (d.open) {
+            classes += ' window-open'
+          } else {
+            classes += ' window-closed'
+          }
+          return classes
+        })
         .attr('d', d => {
           return this.lineFunction(d.dimensions)
         })
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
     },
-    updateLights (lights) {
-      let light = lights.selectAll('g.light-group')
-        .data(this.lights)
+    updateLights () {
+      let light = this.lightsGroup.selectAll('g.light-group')
+        .data(this.lights, d => { return d._id })
+
+      // UPDATE
+      light.selectAll('circle.light-glow')
+        .transition().duration(this.transitionDuration)
+        .attr('r', d => {
+          return d.on ? 6 * this.multiplier : 0
+        })
 
       // ENTER
       light = light.enter()
         .append('g')
         .attr('class', 'light-group')
-        .merge(light)
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
 
       light.append('circle')
-        .attr('class', function (d) {
-          let classAttr
-          if (d.on) {
-            classAttr = 'light-on'
-          } else {
-            classAttr = 'light-off'
-          }
-          return classAttr
-        })
+        .attr('class', 'light-glow')
         .attr('cx', d => { return parseInt(d['x position'], 10) * this.multiplier })
         .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
-        .attr('r', 6 * this.multiplier)
         .style('fill', 'url(#radial-gradient)')
+        .attr('r', 0)
+        .transition().duration(this.transitionDuration)
+        .attr('r', d => {
+          return d.on ? 6 * this.multiplier : 0
+        })
 
       light.append('circle')
         .attr('class', 'light')
@@ -362,16 +417,23 @@ export default {
         .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
         .attr('r', 0.5 * this.multiplier)
 
+      // ENTER + UPDATE
+      light = light.merge(light)
+
       // EXIT
       light.exit().remove()
     },
-    updateCameras (cameras) {
-      let camera = cameras.selectAll('g.camera-group')
-        .data(this.cameras)
+    updateCameras () {
+      let camera = this.camerasGroup.selectAll('g.camera-group')
+        .data(this.cameras, d => { return d._id })
 
       camera = camera.enter()
         .append('g')
         .attr('class', 'camera-group')
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
+        .merge(camera)
 
       camera.append('path')
         .attr('class', 'camera-view')
@@ -400,13 +462,17 @@ export default {
         .attr('cy', d => { return parseInt(d['y position'], 10) * this.multiplier })
         .attr('r', 0.3 * this.multiplier)
     },
-    updateTemperatureSensors (sensors) {
-      let sensor = sensors.selectAll('g.sensor-group')
-        .data(this.temperatureSensors)
+    updateTemperatureSensors () {
+      let sensor = this.sensorsGroup.selectAll('g.sensor-group')
+        .data(this.temperatureSensors, d => { return d._id })
 
       sensor = sensor.enter()
         .append('g')
         .attr('class', 'sensor-group')
+        .on('mouseenter', this.mouseenter)
+        .on('mousemove', this.mousemove)
+        .on('mouseleave', this.mouseleave)
+        .merge(sensor)
 
       sensor.append('circle')
         .attr('class', 'sensor')
@@ -420,6 +486,8 @@ export default {
 
 <!-- styling for the component -->
 <style lang='scss'>
+  @import '../assets/settings.scss';
+
   .container {
     display: inline-block;
     height: 100%;
@@ -436,64 +504,68 @@ export default {
 
   path {
     fill: none;
-    stroke: black;
+    stroke: $dark;
     stroke-width: 2px;
   }
 
   .walls {
-    fill: #efd697; //#ad9a6b;
+    fill: $floor;
   }
 
   .door {
-    stroke: #cc993c;
+    stroke: $door;
     stroke-width: 4px;
   }
 
   .door-path {
+    stroke: $dotted;
     stroke-width: 1px;
     stroke-dasharray: 2, 2;
   }
 
   .door-open {
     .door-closed-path {
-      stroke: #efd697;
+      stroke: $floor;
     }
   }
 
   .window {
-    stroke: #e4e4e4;
     stroke-width: 12px;
+  }
+
+  .window-open {
+    stroke: $window;
+  }
+
+  .window-closed {
+    stroke: $dark;
   }
 
   .light {
     fill: white;
-    stroke: black;
+    stroke: $dark;
     stroke-width: 2px;
   }
 
-  .lights-on {
-    fill: #efd697;
-  }
-
-  .light-off {
-    display: none;
-  }
+  // .light-off {
+  //   display: none;
+  // }
 
   .camera {
-    fill: #ff4545;
-    stroke: black;
+    fill: $camera;
+    stroke: $dark;
     stroke-width: 2px;
   }
 
   .camera-view {
-    stroke: #888888;
+    stroke: $dotted;
     stroke-dasharray: 4, 2;
     stroke-width: 1px;
   }
 
   .sensor {
-    fill: green;
-    stroke: black;
+    fill: $sensor;
+    stroke: $dark;
     stroke-width: 2px;
   }
 </style>

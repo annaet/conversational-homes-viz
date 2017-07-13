@@ -7,7 +7,9 @@ import App from './App'
 import router from './router'
 
 import Floorplan from './components/Floorplan.vue'
+import Chatbox from './components/Chatbox.vue'
 Vue.component('floorplan', Floorplan)
+Vue.component('chatbox', Chatbox)
 
 Vue.use(VueResource)
 
