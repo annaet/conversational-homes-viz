@@ -100,6 +100,8 @@ export default {
         if (switchingThings.length) {
           this.handleSwitchingThings(actions, switchingThings)
         }
+      } else {
+        this.reply('Sorry, I didn\'t understand that.')
       }
     },
     handleOpeningThings (actions, openingThings) {
@@ -153,7 +155,7 @@ export default {
               this.store.save(this.sentences)
                 .then(result => {
                   Observer.update()
-                  this.reply()
+                  this.reply('OK')
                 })
             })
           }
@@ -208,17 +210,17 @@ export default {
               this.store.save(this.sentences)
                 .then(result => {
                   Observer.update()
-                  this.reply()
+                  this.reply('OK')
                 })
             })
           }
         }
       }
     },
-    reply () {
+    reply (message) {
       this.messages.push({
         sender: 'hudson',
-        text: 'OK'
+        text: message
       })
     }
   }

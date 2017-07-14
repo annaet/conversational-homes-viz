@@ -25,6 +25,7 @@ export default {
     Observer.registerCallback(() => {
       this.getLightStateChanges()
       this.getDoorStateChanges()
+      this.getWindowStateChanges()
     })
   },
   methods: {
@@ -200,33 +201,35 @@ export default {
     getWindows () {
       API.getInstances('window').then(response => {
         let newWindows = response.body
-        let windowMap = {}
+        this.windowMap = {}
 
         newWindows = newWindows.map((window, i) => {
           window.dimensions = JSON.parse(window.dimensions)
           window.open = true
-          windowMap[window._id + ' Sensor'] = i
+          this.windowMap[window._id + ' Sensor'] = i
           return window
         })
 
         this.windows = newWindows
+        this.getWindowStateChanges()
+      })
+    },
+    getWindowStateChanges () {
+      API.getInstances('window sensor state change').then(response => {
+        let stateChanges = response.body
 
-        API.getInstances('window sensor state change').then(response => {
-          let stateChanges = response.body
+        for (let sc of stateChanges) {
+          let i = this.windowMap[sc['applies to']]
+          let window = this.windows[i]
+          let ts = parseInt(sc.timestamp, 10)
 
-          for (let sc of stateChanges) {
-            let i = windowMap[sc['applies to']]
-            let window = this.windows[i]
-            let ts = parseInt(sc.timestamp, 10)
-
-            if (!window.lastUpdated || window.lastUpdated <= ts) {
-              window.open = sc['current state'] === 'Open'
-              window.lastUpdated = ts
-            }
+          if (!window.lastUpdated || window.lastUpdated <= ts) {
+            window.open = sc['current state'] === 'Open'
+            window.lastUpdated = ts
           }
+        }
 
-          this.updateWindows()
-        })
+        this.updateWindows()
       })
     },
     mouseenter (d) {
@@ -389,26 +392,38 @@ export default {
       door.exit().remove()
     },
     updateWindows () {
-      let window = this.windowsGroup.selectAll('g.window')
+      let window = this.windowsGroup.selectAll('g.window-group')
         .data(this.windows, d => { return d._id })
 
-      window.enter()
-        .append('path')
-        .attr('class', d => {
-          let classes = 'window'
-          if (d.open) {
-            classes += ' window-open'
-          } else {
-            classes += ' window-closed'
-          }
-          return classes
+      // UPDATE
+      window.selectAll('path.window')
+        .transition().duration(this.transitionDuration)
+        .style('stroke', d => {
+          return d.open ? '#e4e4e4' : '#4c4c4c'
         })
-        .attr('d', d => {
-          return this.lineFunction(d.dimensions)
-        })
+
+      // ENTER
+      window = window.enter()
+        .append('g')
+        .attr('class', 'window-group')
         .on('mouseenter', this.mouseenter)
         .on('mousemove', this.mousemove)
         .on('mouseleave', this.mouseleave)
+
+      window.append('path')
+        .attr('class', 'window')
+        .attr('d', d => {
+          return this.lineFunction(d.dimensions)
+        })
+        .style('stroke', d => {
+          return d.open ? '#e4e4e4' : '#4c4c4c'
+        })
+
+      // ENTER + UPDATE
+      window = window.merge(window)
+
+      // EXIT
+      window.exit().remove()
     },
     updateLights () {
       let light = this.lightsGroup.selectAll('g.light-group')
@@ -561,23 +576,11 @@ export default {
     stroke-width: 12px;
   }
 
-  .window-open {
-    stroke: $window;
-  }
-
-  .window-closed {
-    stroke: $dark;
-  }
-
   .light {
     fill: white;
     stroke: $dark;
     stroke-width: 2px;
   }
-
-  // .light-off {
-  //   display: none;
-  // }
 
   .camera {
     fill: $camera;
