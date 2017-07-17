@@ -1,11 +1,12 @@
 const request = require('request')
-const endpoint = 'http://localhost:8080/ce-store/'
+const config = require('../../config')
+const endpoint = config.ceStore.url
+var store = config.ceStore.store
 
 let getConceptInstances = (req, res) => {
-  request.get(endpoint + 'concepts/' + req.params.concept + '/instances?style=normalised', (err, response, body) => {
+  request.get(endpoint + 'stores/' + store + '/concepts/' + req.params.concept + '/instances?style=normalised', (err, response, body) => {
     if (err) {
-      console.log(err)
-      return
+      res.status(500).send(err)
     }
 
     var json = JSON.parse(body)
@@ -14,10 +15,9 @@ let getConceptInstances = (req, res) => {
 }
 
 let getInstance = (req, res) => {
-  request.get(endpoint + 'instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
+  request.get(endpoint + 'stores/' + store + '/instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
     if (err) {
-      console.log(err)
-      return
+      res.status(500).send(err)
     }
 
     var json = JSON.parse(body)
@@ -25,15 +25,54 @@ let getInstance = (req, res) => {
   })
 }
 
+let getStore = (req, res) => {
+  request.get(endpoint + 'stores/' + req.params.store, (err, response, body) => {
+    if (err) {
+      res.status(404).send('Store not found')
+    }
+
+    let json
+    try {
+      json = JSON.parse(body)
+    } catch (err) {
+      res.status(404).send('Store not found')
+    } finally {
+      res.send(json)
+    }
+  })
+}
+
+let createStore = (req, res) => {
+  store = req.params.store
+
+  request.post(endpoint + 'stores/' + store, (err, response, body) => {
+    if (err) {
+      res.status(500).send(err)
+    }
+
+    request({
+      url: endpoint + 'stores/' + store + '/sentences?action=save',
+      method: 'POST',
+      body: "perform%20load%20sentences%20from%20url%20'.%2Fce%2Flatest%2Fcmd%2Fload_all.cecmd'."
+    }, (err, response, body) => {
+      if (err) {
+        res.status(500).send(err)
+      }
+
+      var json = JSON.parse(body)
+      res.send(json)
+    })
+  })
+}
+
 let sendMessage = (req, res) => {
   request({
-    url: endpoint + '/special/hudson/interpreter',
+    url: endpoint + 'stores/' + store + '/special/hudson/interpreter',
     method: 'POST',
     body: req.body.text
   }, (err, response, body) => {
     if (err) {
-      console.log(err)
-      return
+      res.status(500).send(err)
     }
 
     var json = JSON.parse(body)
@@ -44,5 +83,7 @@ let sendMessage = (req, res) => {
 module.exports = {
   getConceptInstances: getConceptInstances,
   getInstance: getInstance,
+  getStore: getStore,
+  createStore: createStore,
   sendMessage: sendMessage
 }

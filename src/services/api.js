@@ -11,8 +11,17 @@ export default {
       .get('api/instance/' + instance)
   },
 
+  getStore (store) {
+    return Vue.http
+      .get('api/stores/' + store)
+  },
+
+  createStore (store) {
+    return Vue.http
+      .post('api/stores/' + store)
+  },
+
   sendMessage (message) {
-    console.log(message)
     return Vue.http
       .post('api/messages', message)
   }
