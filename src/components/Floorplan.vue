@@ -286,52 +286,53 @@ export default {
       let door = this.doorsGroup.selectAll('g.door-group')
         .data(this.doors, d => { return d._id })
 
-      let getDoorLine = d => {
-        if (d.open) {
-          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-          let facingAway
+      let isHorizontal = d => {
+        return d.dimensions[0][1] === d.dimensions[1][1]
+      }
 
-          if (horizontal) {
-            facingAway = d.dimensions[0][1] <= this.center[1]
-          } else {
-            facingAway = d.dimensions[0][0] <= this.center[0]
-          }
-
-          let multiplier = facingAway ? 1 : -1
-          let openDoorDimensions = [d.dimensions[0]]
-
-          if (horizontal) {
-            openDoorDimensions.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
-          } else {
-            openDoorDimensions.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
-          }
-
-          return this.lineFunction(openDoorDimensions)
+      let isFacingAway = (d, horizontal) => {
+        if (horizontal) {
+          return d.dimensions[0][1] <= this.center[1]
         } else {
-          return this.lineFunction(d.dimensions)
+          return d.dimensions[0][0] <= this.center[0]
+        }
+      }
+
+      let getTransform = d => {
+        if (d.open) {
+          let horizontal = isHorizontal(d)
+          let facingAway = isFacingAway(d, horizontal)
+
+          let multiplier = facingAway ? -1 : 1
+          let i = horizontal ? 0 : 1
+          let xLength = multiplier * +(d.dimensions[1][i] - d.dimensions[0][i]) * this.multiplier / 2
+          let yLength = multiplier * -(d.dimensions[1][i] - d.dimensions[0][i]) * this.multiplier / 2
+
+          xLength = horizontal ? multiplier * 50 + '%' : xLength + 'px'
+          yLength = horizontal ? yLength + 'px' : multiplier * 50 + '%'
+
+          return 'rotate(90deg) translateX(' + xLength + ') translateY(' + yLength + ')'
+        } else {
+          return 'rotate(0deg) translateX(0) translateY(0)'
         }
       }
 
       let getDoorPathCurve = d => {
         if (d.open) {
-          let horizontal = d.dimensions[0][1] === d.dimensions[1][1]
-          let facingAway
-
-          if (horizontal) {
-            facingAway = d.dimensions[0][1] <= this.center[1]
-          } else {
-            facingAway = d.dimensions[0][0] <= this.center[0]
-          }
+          let horizontal = isHorizontal(d)
+          let facingAway = isFacingAway(d, horizontal)
 
           let multiplier = facingAway ? 1 : -1
-          let doorPath = [d.dimensions[1]]
+          let i = facingAway ? 1 : 0
+          let j = 1 - i
+          let doorPath = [d.dimensions[i]]
 
           if (horizontal) {
-            doorPath.push([d.dimensions[1][0] - 1.5, d.dimensions[0][1] - (3.5 * multiplier)])
-            doorPath.push([d.dimensions[0][0], d.dimensions[1][1] - (5 * multiplier)])
+            doorPath.push([d.dimensions[i][0] - 1.5 * multiplier, d.dimensions[j][1] - (3.5 * multiplier)])
+            doorPath.push([d.dimensions[j][0], d.dimensions[i][1] - (5 * multiplier)])
           } else {
-            doorPath.push([d.dimensions[1][0] + 3.5, d.dimensions[0][1] + (3.5 * multiplier)])
-            doorPath.push([d.dimensions[0][0] + (5 * multiplier), d.dimensions[0][1]])
+            doorPath.push([d.dimensions[i][0] + 3.5 * multiplier, d.dimensions[j][1] + (3.5 * multiplier)])
+            doorPath.push([d.dimensions[j][0] + (5 * multiplier), d.dimensions[j][1]])
           }
 
           return this.curveFunction(doorPath)
@@ -340,10 +341,8 @@ export default {
 
       // UPDATE
       door.selectAll('path.door')
-        .transition().duration(this.transitionDuration)
-        .attr('d', d => {
-          return getDoorLine(d)
-        })
+        // .transition().duration(this.transitionDuration) // doesn't work
+        .style('transform', getTransform)
 
       door.selectAll('path.door-path')
         .transition().duration(this.transitionDuration)
@@ -375,8 +374,10 @@ export default {
 
       door.append('path')
         .attr('class', 'door')
+        .style('transform-origin', 'center')
+        .style('transform', getTransform)
         .attr('d', d => {
-          return getDoorLine(d)
+          return this.lineFunction(d.dimensions)
         })
 
       door.append('path')
