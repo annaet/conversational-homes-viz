@@ -29,7 +29,7 @@ export default {
   name: 'chatbox',
   data () {
     return {
-      message: 'open front door',
+      message: '',
       messages: [{
         sender: 'hudson',
         text: 'hello'
@@ -65,6 +65,16 @@ export default {
         sender: 'user',
         text: this.message
       })
+
+      let sentences = new CE.Sentences()
+      sentences
+        .there_is_a('message', 'message_{uid}')
+        .has('value', this.user, 'sender')
+        .has('value', this.message, 'text')
+        .has('value', '{now}', 'timestamp')
+
+      this.store.save(sentences)
+
       API.sendMessage({
         text: this.message
       }, this.user).then(response => {
@@ -77,7 +87,6 @@ export default {
       let actions = []
       let openingThings = []
       let switchingThings = []
-      // let devices = []
       let states = []
       let all = false
 
@@ -95,7 +104,7 @@ export default {
         }
       }
 
-      // Look for actions
+      // Sort entities
       if (results.instances) {
         for (let instance of results.instances) {
           for (let entity of instance.entities) {
@@ -114,9 +123,6 @@ export default {
             if (entity._concept.indexOf('state') > -1) {
               states.push(entity)
             }
-            // if (entity._concept.indexOf('device') > -1) {
-            //   devices.push(entity)
-            // }
             if (entity._id === 'all') {
               all = true
             }
@@ -127,8 +133,6 @@ export default {
           for (let concept of results.concepts) {
             for (let entity of concept.entities) {
               API.getInstances(entity._id, this.user).then(response => {
-                console.log(response)
-
                 for (let thing of response.body) {
                   if (thing._concept.indexOf('opening thing') > -1) {
                     openingThings.push(thing)
@@ -156,8 +160,8 @@ export default {
     },
     handleOpeningThings (actions, openingThings) {
       for (let action of actions) {
-        if (this.openingMessages.indexOf(action._id) > -1) {
-          let actionName = action._id === 'open' ? 'Open' : 'Closed'
+        if (this.openingMessages.indexOf(action._id.toLowerCase()) > -1) {
+          let actionName = action._id.toLowerCase() === 'open' ? 'Open' : 'Closed'
 
           for (let openingThing of openingThings) {
             API.getInstance(openingThing._id, this.user).then(response => {
@@ -188,8 +192,8 @@ export default {
               }
 
               // Create CE sentence for state change
-              this.sentences = new CE.Sentences()
-              let sentence = this.sentences
+              let sentences = new CE.Sentences()
+              let sentence = sentences
                 .there_is_a(stateChangeType, 'sc_{uid}')
                 .property('applies to', 'device', sensor)
                 .has('binary state', actionName, 'current state')
@@ -202,7 +206,7 @@ export default {
               console.log(sentence.toString())
 
               // Save CE
-              this.store.save(this.sentences)
+              this.store.save(sentences)
                 .then(result => {
                   Observer.update()
 
@@ -216,8 +220,8 @@ export default {
     },
     handleSwitchingThings (actions, switchingThings) {
       for (let action of actions) {
-        if (this.switchingMessages.indexOf(action._id) > -1) {
-          let actionName = action._id.indexOf('on') > -1 ? 'On' : 'Off'
+        if (this.switchingMessages.indexOf(action._id.toLowerCase()) > -1) {
+          let actionName = action._id.toLowerCase().indexOf('on') > -1 ? 'On' : 'Off'
 
           for (let switchingThing of switchingThings) {
             API.getInstance(switchingThing._id, this.user).then(response => {
@@ -245,8 +249,8 @@ export default {
               }
 
               // Create CE sentence for state change
-              this.sentences = new CE.Sentences()
-              let sentence = this.sentences
+              let sentences = new CE.Sentences()
+              let sentence = sentences
                 .there_is_a(stateChangeType, 'sc_{uid}')
                 .property('applies to', 'device', switchingThing._id)
                 .has('binary state', actionName, 'current state')
@@ -259,7 +263,7 @@ export default {
               console.log(sentence.toString())
 
               // Save CE
-              this.store.save(this.sentences)
+              this.store.save(sentences)
                 .then(result => {
                   Observer.update()
 
@@ -276,6 +280,15 @@ export default {
         sender: 'hudson',
         text: message
       })
+
+      let sentences = new CE.Sentences()
+      sentences
+        .there_is_a('message', 'message_{uid}')
+        .has('value', 'hudson', 'sender')
+        .has('value', message, 'text')
+        .has('value', '{now}', 'timestamp')
+
+      this.store.save(sentences)
     }
   }
 }

@@ -30,7 +30,7 @@ module.exports = {
     proxyTable: {
       // proxy all requests starting with /api to prod server
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:6032',
         changeOrigin: true
       }
     },

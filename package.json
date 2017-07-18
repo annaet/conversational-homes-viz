@@ -5,7 +5,7 @@
   "author": "Anna Thomas <annaet@uk.ibm.com>",
   "private": true,
   "scripts": {
-    "dev": "node build/prod-server.js | node build/dev-server.js",
+    "dev": "node build/dev-server.js",
     "start": "node build/prod-server.js",
     "build": "node build/build.js",
     "prod": "node build/prod-server.js",
