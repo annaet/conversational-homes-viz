@@ -1,5 +1,6 @@
 <template>
   <div class="container">
+    <h2 class="player">Playing as {{store}}</h2>
     <svg id="floorplan"></svg>
     <div class="tooltip">
       <h3 id="room-name"></h3>
@@ -11,16 +12,20 @@
 <script>
 import * as d3 from 'd3'
 import API from '../services/api'
+import Store from '../services/store'
 import Observer from '../services/observer'
 
 export default {
   name: 'floorplan',
   data () {
     return {
-      transitionDuration: 1500
+      transitionDuration: 1500,
+      store: ''
     }
   },
   mounted () {
+    this.store = Store.get()
+    console.log('floorplan: ' + this.store)
     this.buildFloorplan()
     Observer.registerCallback(() => {
       this.getLightStateChanges()
@@ -35,7 +40,7 @@ export default {
       var svg = d3.select('svg#floorplan')
 
       svg.attr('width', +boundingBox.width)
-      svg.attr('height', +boundingBox.height)
+      svg.attr('height', +boundingBox.height - 60)
 
       var margin = {top: 100, right: 100, bottom: 150, left: 100}
       var width = +boundingBox.width - margin.left - margin.right
@@ -59,7 +64,7 @@ export default {
       this.sensorsGroup = this.floorplan.append('g')
         .attr('class', 'sensors')
 
-      API.getInstances('room').then(response => {
+      API.getInstances('room', this.store).then(response => {
         let newRooms = response.body
 
         newRooms = newRooms.map(room => {
@@ -101,12 +106,12 @@ export default {
         this.getDoors()
         this.getWindows()
 
-        API.getInstances('camera').then(response => {
+        API.getInstances('camera', this.store).then(response => {
           this.cameras = response.body
           this.updateCameras()
         })
 
-        API.getInstances('temperature sensor').then(response => {
+        API.getInstances('temperature sensor', this.store).then(response => {
           this.temperatureSensors = response.body
           this.updateTemperatureSensors()
         })
@@ -133,7 +138,7 @@ export default {
           .attr('stop-opacity', '0')
     },
     getLights () {
-      API.getInstances('light').then(response => {
+      API.getInstances('light', this.store).then(response => {
         this.lights = response.body
         this.lightMap = {}
 
@@ -147,7 +152,7 @@ export default {
       })
     },
     getLightStateChanges () {
-      API.getInstances('light state change').then(response => {
+      API.getInstances('light state change', this.store).then(response => {
         let stateChanges = response.body
 
         for (let sc of stateChanges) {
@@ -165,7 +170,7 @@ export default {
       })
     },
     getDoors () {
-      API.getInstances('door').then(response => {
+      API.getInstances('door', this.store).then(response => {
         let newDoors = response.body
         this.doorMap = {}
 
@@ -181,7 +186,7 @@ export default {
       })
     },
     getDoorStateChanges () {
-      API.getInstances('door sensor state change').then(response => {
+      API.getInstances('door sensor state change', this.store).then(response => {
         let stateChanges = response.body
 
         for (let sc of stateChanges) {
@@ -199,7 +204,7 @@ export default {
       })
     },
     getWindows () {
-      API.getInstances('window').then(response => {
+      API.getInstances('window', this.store).then(response => {
         let newWindows = response.body
         this.windowMap = {}
 
@@ -215,7 +220,7 @@ export default {
       })
     },
     getWindowStateChanges () {
-      API.getInstances('window sensor state change').then(response => {
+      API.getInstances('window sensor state change', this.store).then(response => {
         let stateChanges = response.body
 
         for (let sc of stateChanges) {
@@ -536,6 +541,11 @@ export default {
   .container {
     display: inline-block;
     height: 100%;
+
+    .player {
+      text-align: left;
+      margin: 20px 0 0 24px;
+    }
   }
 
   .tooltip {

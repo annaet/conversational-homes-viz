@@ -1,14 +1,14 @@
 import Vue from 'vue'
 
 export default {
-  getInstances (concept) {
+  getInstances (concept, store) {
     return Vue.http
-      .get('api/instances/' + concept)
+      .get('api/instances/' + concept + '?store=' + store)
   },
 
-  getInstance (instance) {
+  getInstance (instance, store) {
     return Vue.http
-      .get('api/instance/' + instance)
+      .get('api/instance/' + instance + '?store=' + store)
   },
 
   getStore (store) {
@@ -21,8 +21,8 @@ export default {
       .post('api/stores/' + store)
   },
 
-  sendMessage (message) {
+  sendMessage (message, store) {
     return Vue.http
-      .post('api/messages', message)
+      .post('api/messages', message + '?store=' + store)
   }
 }

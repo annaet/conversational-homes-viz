@@ -5,7 +5,9 @@
            type="text"
            v-model="user"
            v-on:keyup.enter="play()"></input>
-    <span class="error">{{ error }}</span>
+    <span class="error" v-on:click="playPrevious()">
+      {{ error }}
+    </span>
     <button class="button"
             :class="{ disabled: !user.length }"
             v-on:click="play()">
@@ -31,7 +33,7 @@ export default {
     play () {
       if (this.user.length) {
         API.getStore(this.user).then(response => {
-          this.error = 'Username already in use'
+          this.error = 'Username already in use. Load previous game?'
         }, response => {
           Store.set(this.user)
           API.createStore(this.user).then(response => {
@@ -39,6 +41,12 @@ export default {
           })
         })
       }
+    },
+    playPrevious () {
+      Store.set(this.user)
+      API.createStore(this.user).then(response => {
+        router.push('home')
+      })
     }
   }
 }
@@ -73,6 +81,7 @@ export default {
       color: #ff4545;
       height: 22px;
       width: 100%;
+      cursor: pointer;
     }
 
     .button {

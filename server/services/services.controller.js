@@ -4,7 +4,10 @@ const endpoint = config.ceStore.url
 var store = config.ceStore.store
 
 let getConceptInstances = (req, res) => {
-  request.get(endpoint + 'stores/' + store + '/concepts/' + req.params.concept + '/instances?style=normalised', (err, response, body) => {
+  let thisStore = req.query.store ? req.query.store : store
+  console.log('use ' + thisStore)
+
+  request.get(endpoint + 'stores/' + thisStore + '/concepts/' + req.params.concept + '/instances?style=normalised', (err, response, body) => {
     if (err) {
       res.status(500).send(err)
     }
@@ -19,7 +22,10 @@ let getConceptInstances = (req, res) => {
 }
 
 let getInstance = (req, res) => {
-  request.get(endpoint + 'stores/' + store + '/instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
+  let thisStore = req.query.store ? req.query.store : store
+  console.log('use ' + thisStore)
+
+  request.get(endpoint + 'stores/' + thisStore + '/instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
     if (err) {
       res.status(500).send(err)
     }
@@ -76,8 +82,11 @@ let createStore = (req, res) => {
 }
 
 let sendMessage = (req, res) => {
+  let thisStore = req.query.store ? req.query.store : store
+  console.log('use ' + thisStore)
+
   request({
-    url: endpoint + 'stores/' + store + '/special/hudson/interpreter',
+    url: endpoint + 'stores/' + thisStore + '/special/hudson/interpreter',
     method: 'POST',
     body: req.body.text
   }, (err, response, body) => {

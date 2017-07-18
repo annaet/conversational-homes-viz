@@ -6,8 +6,17 @@
 </template>
 
 <script>
+import router from '../router'
+import Store from '../services/store'
+
 export default {
-  name: 'home'
+  name: 'home',
+  mounted () {
+    this.store = Store.get()
+    if (this.store === 'DEFAULT') {
+      router.push('/')
+    }
+  }
 }
 </script>
 
