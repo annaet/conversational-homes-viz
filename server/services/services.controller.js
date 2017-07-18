@@ -9,8 +9,12 @@ let getConceptInstances = (req, res) => {
       res.status(500).send(err)
     }
 
-    var json = JSON.parse(body)
-    res.send(json)
+    try {
+      var json = JSON.parse(body)
+      res.send(json)
+    } catch (err) {
+      res.status(500).send(err)
+    }
   })
 }
 
@@ -20,8 +24,12 @@ let getInstance = (req, res) => {
       res.status(500).send(err)
     }
 
-    var json = JSON.parse(body)
-    res.send(json)
+    try {
+      var json = JSON.parse(body)
+      res.send(json)
+    } catch (err) {
+      res.status(500).send(err)
+    }
   })
 }
 
@@ -31,13 +39,11 @@ let getStore = (req, res) => {
       res.status(404).send('Store not found')
     }
 
-    let json
     try {
-      json = JSON.parse(body)
+      var json = JSON.parse(body)
+      res.send(json)
     } catch (err) {
       res.status(404).send('Store not found')
-    } finally {
-      res.send(json)
     }
   })
 }
@@ -59,8 +65,12 @@ let createStore = (req, res) => {
         res.status(500).send(err)
       }
 
-      var json = JSON.parse(body)
-      res.send(json)
+      try {
+        var json = JSON.parse(body)
+        res.send(json)
+      } catch (err) {
+        res.status(500).send(err)
+      }
     })
   })
 }
@@ -75,8 +85,12 @@ let sendMessage = (req, res) => {
       res.status(500).send(err)
     }
 
-    var json = JSON.parse(body)
-    res.send(json)
+    try {
+      var json = JSON.parse(body)
+      res.send(json)
+    } catch (err) {
+      res.status(500).send(err)
+    }
   })
 }
 

@@ -73,15 +73,35 @@ export default {
       })
     },
     handleResponse (results) {
+      let questions = []
       let actions = []
       let openingThings = []
       let switchingThings = []
-      let devices = []
+      // let devices = []
+      let states = []
+      let all = false
+
+      console.log(results)
+
+      let handleThings = () => {
+        if (questions.length) {
+          this.handleQuestion(questions, openingThings, switchingThings, states)
+        }
+        if (openingThings.length) {
+          this.handleOpeningThings(actions, openingThings)
+        }
+        if (switchingThings.length) {
+          this.handleSwitchingThings(actions, switchingThings)
+        }
+      }
 
       // Look for actions
       if (results.instances) {
         for (let instance of results.instances) {
           for (let entity of instance.entities) {
+            if (entity._concept.indexOf('question word') > -1) {
+              questions.push(entity)
+            }
             if (entity._concept.indexOf('action') > -1) {
               actions.push(entity)
             }
@@ -91,26 +111,53 @@ export default {
             if (entity._concept.indexOf('switching thing') > -1) {
               switchingThings.push(entity)
             }
-            if (entity._concept.indexOf('device') > -1) {
-              devices.push(entity)
+            if (entity._concept.indexOf('state') > -1) {
+              states.push(entity)
+            }
+            // if (entity._concept.indexOf('device') > -1) {
+            //   devices.push(entity)
+            // }
+            if (entity._id === 'all') {
+              all = true
             }
           }
         }
 
-        if (openingThings.length) {
-          this.handleOpeningThings(actions, openingThings)
-        }
-        if (switchingThings.length) {
-          this.handleSwitchingThings(actions, switchingThings)
+        if (all && results.concepts) {
+          for (let concept of results.concepts) {
+            for (let entity of concept.entities) {
+              API.getInstances(entity._id).then(response => {
+                console.log(response)
+
+                for (let thing of response.body) {
+                  if (thing._concept.indexOf('opening thing') > -1) {
+                    openingThings.push(thing)
+                  }
+                  if (thing._concept.indexOf('switching thing') > -1) {
+                    switchingThings.push(thing)
+                  }
+                }
+
+                handleThings()
+              })
+            }
+          }
+        } else {
+          handleThings()
         }
       } else {
         this.reply('Sorry, I didn\'t understand that.')
       }
     },
+    handleQuestion (questions, openingThings, switchingThings, states) {
+      for (let question of questions) {
+        console.log(question)
+      }
+    },
     handleOpeningThings (actions, openingThings) {
       for (let action of actions) {
         if (this.openingMessages.indexOf(action._id) > -1) {
-          let actionName = action._id === 'open' ? 'Open' : 'Close'
+          let actionName = action._id === 'open' ? 'Open' : 'Closed'
 
           for (let openingThing of openingThings) {
             API.getInstance(openingThing._id).then(response => {
@@ -158,7 +205,9 @@ export default {
               this.store.save(this.sentences)
                 .then(result => {
                   Observer.update()
-                  this.reply('OK')
+
+                  let message = actionName === 'Open' ? 'Opened ' : 'Closed '
+                  this.reply(message + openingThing._id)
                 })
             })
           }
@@ -213,7 +262,9 @@ export default {
               this.store.save(this.sentences)
                 .then(result => {
                   Observer.update()
-                  this.reply('OK')
+
+                  let message = 'Turning '
+                  this.reply(message + switchingThing._id + ' ' + actionName.toLowerCase())
                 })
             })
           }
