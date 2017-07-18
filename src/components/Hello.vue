@@ -7,23 +7,7 @@
 
 <script>
 export default {
-  name: 'hello',
-  data () {},
-  mounted () {
-    this.update()
-  },
-  methods: {
-    update () {
-      setTimeout(() => {
-        // console.log('set history')
-        this.history = [{
-          _source: {
-            speed: 2
-          }
-        }]
-      }, 500)
-    }
-  }
+  name: 'home'
 }
 </script>
 

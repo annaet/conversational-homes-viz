@@ -17,6 +17,7 @@
 <script>
 import router from '../router'
 import API from '../services/api'
+import Store from '../services/store'
 
 export default {
   name: 'login',
@@ -32,6 +33,7 @@ export default {
         API.getStore(this.user).then(response => {
           this.error = 'Username already in use'
         }, response => {
+          Store.set(this.user)
           API.createStore(this.user).then(response => {
             router.push('home')
           })

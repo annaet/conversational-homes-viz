@@ -20,6 +20,7 @@
 
 <script>
 import API from '../services/api'
+import Store from '../services/store'
 import Observer from '../services/observer'
 import CE from 'controlled-english'
 
@@ -52,9 +53,11 @@ export default {
   },
   methods: {
     setUpStore () {
+      let store = Store.get()
+      console.log('using store ' + store)
       this.store = new CE.Store({
         host: 'localhost:8080',
-        store: 'DEFAULT'
+        store: store
       })
     },
     send () {

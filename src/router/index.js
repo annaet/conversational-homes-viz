@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import Router from 'vue-router'
 import Login from '@/components/Login'
-import Hello from '@/components/Hello'
+import Home from '@/components/Hello'
 
 Vue.use(Router)
 
@@ -14,8 +14,8 @@ export default new Router({
     },
     {
       path: '/home',
-      name: 'Hello',
-      component: Hello
+      name: 'Home',
+      component: Home
     }
   ],
   mode: 'history'
