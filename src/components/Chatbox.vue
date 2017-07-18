@@ -22,6 +22,7 @@
 import API from '../services/api'
 import Store from '../services/store'
 import Observer from '../services/observer'
+import config from '../../config'
 import CE from 'controlled-english'
 
 export default {
@@ -53,11 +54,10 @@ export default {
   },
   methods: {
     setUpStore () {
-      let store = Store.get()
-      console.log('using store ' + store)
+      this.user = Store.get()
       this.store = new CE.Store({
-        host: 'localhost:8080',
-        store: store
+        host: config.ceStore.url,
+        store: this.user
       })
     },
     send () {
@@ -67,7 +67,7 @@ export default {
       })
       API.sendMessage({
         text: this.message
-      }).then(response => {
+      }, this.user).then(response => {
         this.message = ''
         this.handleResponse(response.body.interpretations[0].result)
       })
@@ -126,7 +126,7 @@ export default {
         if (all && results.concepts) {
           for (let concept of results.concepts) {
             for (let entity of concept.entities) {
-              API.getInstances(entity._id).then(response => {
+              API.getInstances(entity._id, this.user).then(response => {
                 console.log(response)
 
                 for (let thing of response.body) {
@@ -160,7 +160,7 @@ export default {
           let actionName = action._id === 'open' ? 'Open' : 'Closed'
 
           for (let openingThing of openingThings) {
-            API.getInstance(openingThing._id).then(response => {
+            API.getInstance(openingThing._id, this.user).then(response => {
               let instance = response.body
               let refs = instance.referring_instances
 
@@ -220,7 +220,7 @@ export default {
           let actionName = action._id.indexOf('on') > -1 ? 'On' : 'Off'
 
           for (let switchingThing of switchingThings) {
-            API.getInstance(switchingThing._id).then(response => {
+            API.getInstance(switchingThing._id, this.user).then(response => {
               let instance = response.body
               let refs = instance.referring_instances
 

@@ -23,6 +23,6 @@ export default {
 
   sendMessage (message, store) {
     return Vue.http
-      .post('api/messages', message + '?store=' + store)
+      .post('api/messages?store=' + store, message)
   }
 }

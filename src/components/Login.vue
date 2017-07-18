@@ -44,9 +44,7 @@ export default {
     },
     playPrevious () {
       Store.set(this.user)
-      API.createStore(this.user).then(response => {
-        router.push('home')
-      })
+      router.push('home')
     }
   }
 }
