@@ -23,3 +23,35 @@ npm run prod
 ```
 
 For detailed explanation on how things work, checkout the [guide](http://vuejs-templates.github.io/webpack/) and [docs for vue-loader](http://vuejs.github.io/vue-loader).
+
+## Examples
+
+Control individual objects:
+
+`Open the front door`
+
+`Close the front door`
+
+`Turn on the bathroom light`
+
+`Turn off the bathroom overheads`
+
+`Open the front left window`
+
+`Close the front middle window`
+
+Control all objects of a certain type:
+
+`Open all the doors`
+
+`Close all the windows`
+
+`Turn off all the lights`
+
+Ask for the state of an individual object:
+
+`Is the bathroom light on`
+
+`Are the hallway lights on`
+
+`Is the bathroom window closed`

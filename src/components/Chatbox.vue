@@ -32,10 +32,7 @@ export default {
       message: '',
       messages: [{
         sender: 'hudson',
-        text: 'hello'
-      }, {
-        sender: 'user',
-        text: 'hi!'
+        text: 'Ask me about the house'
       }],
       openingMessages: [
         'open',
@@ -88,19 +85,30 @@ export default {
       let openingThings = []
       let switchingThings = []
       let states = []
+      let controlConcepts = []
       let all = false
 
       console.log(results)
 
       let handleThings = () => {
-        if (questions.length) {
-          this.handleQuestion(questions, openingThings, switchingThings, states)
-        }
-        if (openingThings.length) {
-          this.handleOpeningThings(actions, openingThings)
-        }
-        if (switchingThings.length) {
-          this.handleSwitchingThings(actions, switchingThings)
+        console.log('questions', questions)
+        console.log('openingThings', openingThings)
+        console.log('switchingThings', switchingThings)
+        console.log('states', states)
+        console.log('actions', actions)
+        let thingMentioned = openingThings.length || switchingThings.length
+
+        if (questions.length && states.length && (thingMentioned || controlConcepts.length)) {
+          this.handleQuestion(questions, openingThings, switchingThings, states, controlConcepts)
+        } else if (actions.length && thingMentioned) {
+          if (openingThings.length) {
+            this.handleOpeningThings(actions, openingThings)
+          }
+          if (switchingThings.length) {
+            this.handleSwitchingThings(actions, switchingThings)
+          }
+        } else {
+          this.reply('Sorry, I didn\'t understand that')
         }
       }
 
@@ -129,33 +137,130 @@ export default {
           }
         }
 
-        if (all && results.concepts) {
+        if (results.concepts) {
           for (let concept of results.concepts) {
             for (let entity of concept.entities) {
-              API.getInstances(entity._id, this.user).then(response => {
-                for (let thing of response.body) {
-                  if (thing._concept.indexOf('opening thing') > -1) {
-                    openingThings.push(thing)
+              if (all) {
+                API.getInstances(entity._id, this.user).then(response => {
+                  for (let thing of response.body) {
+                    if (thing._concept.indexOf('opening thing') > -1) {
+                      openingThings.push(thing)
+                    }
+                    if (thing._concept.indexOf('switching thing') > -1) {
+                      switchingThings.push(thing)
+                    }
                   }
-                  if (thing._concept.indexOf('switching thing') > -1) {
-                    switchingThings.push(thing)
-                  }
-                }
 
-                handleThings()
-              })
+                  handleThings()
+                })
+              } else {
+                if (entity._concept.indexOf('controllable concept')) {
+                  controlConcepts.push(entity)
+                }
+              }
             }
+          }
+
+          if (!all) {
+            handleThings()
           }
         } else {
           handleThings()
         }
       } else {
-        this.reply('Sorry, I didn\'t understand that.')
+        handleThings()
       }
     },
-    handleQuestion (questions, openingThings, switchingThings, states) {
+    handleQuestion (questions, openingThings, switchingThings, states, controlConcepts) {
       for (let question of questions) {
         console.log(question)
+        if (question._id === 'is' || question._id === 'are') {
+          if (switchingThings.length || openingThings.length) {
+            for (let state of states) {
+              let stateId = state._id.toLowerCase()
+              if (switchingThings.length && (stateId === 'on' || stateId === 'off')) {
+                for (let switchingThing of switchingThings) {
+                  API.getInstance(switchingThing._id, this.user).then(response => {
+                    let instance = response.body
+                    console.log(instance)
+                    let refs = instance.referring_instances
+
+                    let maxTimestamp = 0
+                    let currentState
+
+                    // Look through previous states
+                    if (refs && refs['applies to']) {
+                      for (let sc of refs['applies to']) {
+                        if (sc.timestamp > maxTimestamp) {
+                          maxTimestamp = sc.timestamp
+                          currentState = sc['current state']
+                        }
+                      }
+                    }
+
+                    console.log(currentState)
+                    this.reply('Current state of ' + switchingThing._id + ' is ' + currentState)
+                  })
+                }
+              } else if (openingThings.length && (stateId === 'open' || stateId === 'closed')) {
+                for (let openingThing of openingThings) {
+                  API.getInstance(openingThing._id, this.user).then(response => {
+                    let instance = response.body
+                    console.log(instance)
+                    let refs = instance.referring_instances
+
+                    let maxTimestamp = 0
+                    let currentState
+
+                    // Look through previous states
+                    if (refs && refs['applies to']) {
+                      for (let sc of refs['applies to']) {
+                        if (sc.timestamp > maxTimestamp) {
+                          maxTimestamp = sc.timestamp
+                          currentState = sc['current state']
+                        }
+                      }
+                    }
+
+                    console.log(currentState)
+                    this.reply('The current state of the ' + openingThing._id + ' is ' + currentState.toLowerCase())
+                  })
+                }
+              } else {
+                this.reply('Sorry, I didn\'t understand that')
+              }
+            }
+          } else if (controlConcepts.length) {
+            for (let concept of controlConcepts) {
+              API.getInstances(concept._id, this.user).then(response => {
+                let insts = response.body
+                for (let inst of insts) {
+                  API.getInstance(inst._id, this.user).then(response => {
+                    let instance = response.body
+                    let refs = instance.referring_instances
+
+                    let maxTimestamp = 0
+                    let currentState
+
+                    // Look through previous states
+                    if (refs && refs['applies to']) {
+                      for (let sc of refs['applies to']) {
+                        if (sc.timestamp > maxTimestamp) {
+                          maxTimestamp = sc.timestamp
+                          currentState = sc['current state']
+                        }
+                      }
+                    }
+
+                    this.reply('The current state of the ' + inst._id + ' is ' + currentState.toLowerCase())
+                  })
+                }
+              })
+            }
+          } else {
+            this.reply('Sorry, I didn\'t understand that')
+          }
+        }
       }
     },
     handleOpeningThings (actions, openingThings) {
@@ -210,7 +315,7 @@ export default {
                 .then(result => {
                   Observer.update()
 
-                  let message = actionName === 'Open' ? 'Opened ' : 'Closed '
+                  let message = actionName === 'Open' ? 'Opening the ' : 'Closing the '
                   this.reply(message + openingThing._id)
                 })
             })
@@ -237,7 +342,6 @@ export default {
                   if (sc.timestamp > maxTimestamp) {
                     maxTimestamp = sc.timestamp
                     prevState = sc['current state']
-                    // sensor = sc['applies to']
                   }
                 }
               }
