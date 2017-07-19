@@ -86,9 +86,18 @@ export default {
       let switchingThings = []
       let states = []
       let controlConcepts = []
+      let rooms = []
       let all = false
 
       console.log(results)
+
+      let removeDuplicates = things => {
+        let seen = {}
+        let noDuplicates = things.filter(thing => {
+          return seen[thing._id] ? false : (seen[thing._id] = true)
+        })
+        return noDuplicates
+      }
 
       let handleThings = () => {
         console.log('questions', questions)
@@ -97,16 +106,19 @@ export default {
         console.log('states', states)
         console.log('actions', actions)
         console.log('controlConcepts', controlConcepts)
+        console.log('rooms', rooms)
         let thingMentioned = openingThings.length || switchingThings.length
 
         if (questions.length && states.length && (thingMentioned || controlConcepts.length)) {
           this.handleQuestion(questions, openingThings, switchingThings, states, controlConcepts)
         } else if (actions.length && thingMentioned) {
           if (openingThings.length) {
-            this.handleOpeningThings(actions, openingThings)
+            let noDuplicates = removeDuplicates(openingThings)
+            this.handleOpeningThings(actions, noDuplicates)
           }
           if (switchingThings.length) {
-            this.handleSwitchingThings(actions, switchingThings)
+            let noDuplicates = removeDuplicates(switchingThings)
+            this.handleSwitchingThings(actions, noDuplicates)
           }
         } else {
           this.reply('Sorry, I didn\'t understand that')
@@ -135,38 +147,78 @@ export default {
             if (entity._id === 'all') {
               all = true
             }
+            if (entity._concept.indexOf('room') > -1) {
+              rooms.push(entity)
+            }
           }
         }
 
         if (results.concepts) {
           for (let concept of results.concepts) {
             for (let entity of concept.entities) {
-              if (all) {
-                API.getInstances(entity._id, this.user).then(response => {
-                  for (let thing of response.body) {
-                    if (thing._concept.indexOf('opening thing') > -1) {
-                      openingThings.push(thing)
-                    }
-                    if (thing._concept.indexOf('switching thing') > -1) {
-                      switchingThings.push(thing)
-                    }
-                  }
-
-                  handleThings()
-                })
-              } else {
-                if (entity._concept.indexOf('controllable concept')) {
-                  controlConcepts.push(entity)
-                }
+              if (entity._concept.indexOf('controllable concept') > -1) {
+                controlConcepts.push(entity)
               }
             }
           }
+        }
 
-          if (!all) {
-            handleThings()
+        if (rooms.length) {
+          for (let room of rooms) {
+            API.getInstance(room._id, this.user, 1).then(response => {
+              console.log(response.body)
+              let refs = response.body.referring_instances
+              for (let ref of refs['is located in']) {
+                for (let concept of controlConcepts) {
+                  if (ref._concept.indexOf(concept._id) > -1) {
+                    if (ref._concept.indexOf('opening thing') > -1) {
+                      openingThings.push(ref)
+                    }
+                    if (ref._concept.indexOf('switching thing') > -1) {
+                      switchingThings.push(ref)
+                    }
+                  }
+                }
+              }
+
+              handleThings()
+            })
           }
         } else {
-          handleThings()
+          if (!switchingThings.length && !openingThings.length) {
+            all = true
+          }
+
+          if (results.concepts && !rooms.length) {
+            for (let concept of results.concepts) {
+              for (let entity of concept.entities) {
+                if (all) {
+                  API.getInstances(entity._id, this.user).then(response => {
+                    for (let thing of response.body) {
+                      if (thing._concept.indexOf('opening thing') > -1) {
+                        openingThings.push(thing)
+                      }
+                      if (thing._concept.indexOf('switching thing') > -1) {
+                        switchingThings.push(thing)
+                      }
+                    }
+
+                    handleThings()
+                  })
+                } else {
+                  if (entity._concept.indexOf('controllable concept')) {
+                    controlConcepts.push(entity)
+                  }
+                }
+              }
+            }
+
+            if (!all) {
+              handleThings()
+            }
+          } else {
+            handleThings()
+          }
         }
       } else {
         handleThings()

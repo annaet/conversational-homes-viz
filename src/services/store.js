@@ -1,4 +1,4 @@
-let store = 'DEFAULT'
+let store = null
 
 export default {
   set (newStore) {

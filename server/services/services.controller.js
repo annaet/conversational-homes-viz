@@ -23,9 +23,11 @@ let getConceptInstances = (req, res) => {
 
 let getInstance = (req, res) => {
   let thisStore = req.query.store ? req.query.store : store
+  let steps = req.query.steps ? req.query.steps : 2
   console.log('get instance ' + thisStore)
+  console.log('get steps ' + steps)
 
-  request.get(endpoint + 'stores/' + thisStore + '/instances/' + req.params.instance + '?style=normalised&steps=2&relatedInstances=false', (err, response, body) => {
+  request.get(endpoint + 'stores/' + thisStore + '/instances/' + req.params.instance + '?style=normalised&steps=' + steps + '&relatedInstances=false', (err, response, body) => {
     if (err) {
       res.status(500).send(err)
     }

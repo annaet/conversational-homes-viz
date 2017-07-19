@@ -6,9 +6,15 @@ export default {
       .get('api/instances/' + concept + '?store=' + store)
   },
 
-  getInstance (instance, store) {
+  getInstance (instance, store, steps) {
+    let url = 'api/instance/' + instance + '?store=' + store
+
+    if (steps) {
+      url += '&steps=' + steps
+    }
+
     return Vue.http
-      .get('api/instance/' + instance + '?store=' + store)
+      .get(url)
   },
 
   getStore (store) {
