@@ -84,10 +84,12 @@ export default {
       let actions = []
       let openingThings = []
       let switchingThings = []
+      let temperatureSensors = []
       let states = []
       let controlConcepts = []
       let rooms = []
       let all = false
+      let temperature = false
 
       console.log(results)
 
@@ -106,15 +108,16 @@ export default {
         console.log('questions', questions)
         console.log('openingThings', openingThings)
         console.log('switchingThings', switchingThings)
+        console.log('temperatureSensors', temperatureSensors)
         console.log('states', states)
         console.log('actions', actions)
         console.log('controlConcepts', controlConcepts)
         console.log('rooms', rooms)
 
-        let thingMentioned = openingThings.length || switchingThings.length
+        let thingMentioned = openingThings.length || switchingThings.length || temperatureSensors.length
 
-        if (questions.length && states.length && (thingMentioned || controlConcepts.length)) {
-          this.handleQuestion(questions, openingThings, switchingThings, states, controlConcepts)
+        if (questions.length && (thingMentioned || controlConcepts.length)) {
+          this.handleQuestion(questions, openingThings, switchingThings, temperatureSensors, states, controlConcepts)
         } else if (actions.length && thingMentioned) {
           if (openingThings.length) {
             this.handleOpeningThings(actions, openingThings)
@@ -146,11 +149,14 @@ export default {
             if (entity._concept.indexOf('state') > -1) {
               states.push(entity)
             }
+            if (entity._concept.indexOf('room') > -1) {
+              rooms.push(entity)
+            }
             if (entity._id === 'all') {
               all = true
             }
-            if (entity._concept.indexOf('room') > -1) {
-              rooms.push(entity)
+            if (entity._id === 'temperature') {
+              temperature = true
             }
           }
         }
@@ -180,6 +186,9 @@ export default {
                       switchingThings.push(ref)
                     }
                   }
+                }
+                if (temperature && ref._concept.indexOf('temperature sensor') > -1) {
+                  temperatureSensors.push(ref)
                 }
               }
 
@@ -244,54 +253,63 @@ export default {
 
       return currentState
     },
-    handleQuestion (questions, openingThings, switchingThings, states, controlConcepts) {
-      for (let question of questions) {
-        console.log(question)
-        if (question._id === 'is' || question._id === 'are') {
-          if (switchingThings.length || openingThings.length) {
-            for (let state of states) {
-              let stateId = state._id.toLowerCase()
-              if (switchingThings.length && (stateId === 'on' || stateId === 'off')) {
-                for (let switchingThing of switchingThings) {
-                  API.getInstance(switchingThing._id, this.user).then(response => {
-                    let instance = response.body
-                    console.log(instance)
-                    let currentState = this.getCurrentState(instance)
-                    console.log(currentState)
-                    this.reply('Current state of ' + switchingThing._id + ' is ' + currentState)
-                  })
-                }
-              } else if (openingThings.length && (stateId === 'open' || stateId === 'closed')) {
-                for (let openingThing of openingThings) {
-                  API.getInstance(openingThing._id, this.user).then(response => {
-                    let instance = response.body
-                    console.log(instance)
-                    let currentState = this.getCurrentState(instance)
-                    console.log(currentState)
-                    this.reply('The current state of the ' + openingThing._id + ' is ' + currentState.toLowerCase())
-                  })
-                }
-              } else {
-                this.reply('Sorry, I didn\'t understand that')
+    handleQuestion (questions, openingThings, switchingThings, temperatureSensors, states, controlConcepts) {
+      // No need for handling of different question words at the moment
+      if (temperatureSensors.length) {
+        for (let sensor of temperatureSensors) {
+          API.getInstance(sensor._id, this.user).then(response => {
+            let instance = response.body
+            let currentState = this.getCurrentState(instance)
+            console.log(currentState)
+            this.reply('The ' + sensor._id + ' is ' + currentState + ' degrees')
+          })
+        }
+      } else if (switchingThings.length || openingThings.length) {
+        if (states.length) {
+          for (let state of states) {
+            let stateId = state._id.toLowerCase()
+            if (switchingThings.length && (stateId === 'on' || stateId === 'off')) {
+              for (let switchingThing of switchingThings) {
+                API.getInstance(switchingThing._id, this.user).then(response => {
+                  let instance = response.body
+                  console.log(instance)
+                  let currentState = this.getCurrentState(instance)
+                  console.log(currentState)
+                  this.reply('Current state of ' + switchingThing._id + ' is ' + currentState)
+                })
               }
+            } else if (openingThings.length && (stateId === 'open' || stateId === 'closed')) {
+              for (let openingThing of openingThings) {
+                API.getInstance(openingThing._id, this.user).then(response => {
+                  let instance = response.body
+                  console.log(instance)
+                  let currentState = this.getCurrentState(instance)
+                  console.log(currentState)
+                  this.reply('The current state of the ' + openingThing._id + ' is ' + currentState.toLowerCase())
+                })
+              }
+            } else {
+              this.reply('Sorry, I didn\'t understand that')
             }
-          } else if (controlConcepts.length) {
-            for (let concept of controlConcepts) {
-              API.getInstances(concept._id, this.user).then(response => {
-                let insts = response.body
-                for (let inst of insts) {
-                  API.getInstance(inst._id, this.user).then(response => {
-                    let instance = response.body
-                    let currentState = this.getCurrentState(instance)
-                    this.reply('The current state of the ' + inst._id + ' is ' + currentState.toLowerCase())
-                  })
-                }
+          }
+        } else {
+          this.reply('Sorry, I didn\'t understand that')
+        }
+      } else if (controlConcepts.length) {
+        for (let concept of controlConcepts) {
+          API.getInstances(concept._id, this.user).then(response => {
+            let insts = response.body
+            for (let inst of insts) {
+              API.getInstance(inst._id, this.user).then(response => {
+                let instance = response.body
+                let currentState = this.getCurrentState(instance)
+                this.reply('The current state of the ' + inst._id + ' is ' + currentState.toLowerCase())
               })
             }
-          } else {
-            this.reply('Sorry, I didn\'t understand that')
-          }
+          })
         }
+      } else {
+        this.reply('Sorry, I didn\'t understand that')
       }
     },
     handleOpeningThings (actions, openingThings) {

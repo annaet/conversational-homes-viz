@@ -46,7 +46,15 @@ Control all objects of a certain type:
 
 `Close all the windows`
 
-`Turn off all the lights`
+`Turn off the lights`
+
+Control all objects of a certain type in a room:
+
+`Turn on the lights in the bedroom`
+
+`Turn off the bedroom lights`
+
+`Open the front room windows`
 
 Ask for the state of an individual object:
 
@@ -55,3 +63,9 @@ Ask for the state of an individual object:
 `Are the hallway lights on`
 
 `Is the bathroom window closed`
+
+Ask for the state of a sensor:
+
+`What is the temperature of the front room`
+
+`What is the temperature of the bedroom`
