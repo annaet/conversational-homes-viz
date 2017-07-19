@@ -100,6 +100,9 @@ export default {
       }
 
       let handleThings = () => {
+        openingThings = removeDuplicates(openingThings)
+        switchingThings = removeDuplicates(switchingThings)
+
         console.log('questions', questions)
         console.log('openingThings', openingThings)
         console.log('switchingThings', switchingThings)
@@ -107,18 +110,17 @@ export default {
         console.log('actions', actions)
         console.log('controlConcepts', controlConcepts)
         console.log('rooms', rooms)
+
         let thingMentioned = openingThings.length || switchingThings.length
 
         if (questions.length && states.length && (thingMentioned || controlConcepts.length)) {
           this.handleQuestion(questions, openingThings, switchingThings, states, controlConcepts)
         } else if (actions.length && thingMentioned) {
           if (openingThings.length) {
-            let noDuplicates = removeDuplicates(openingThings)
-            this.handleOpeningThings(actions, noDuplicates)
+            this.handleOpeningThings(actions, openingThings)
           }
           if (switchingThings.length) {
-            let noDuplicates = removeDuplicates(switchingThings)
-            this.handleSwitchingThings(actions, noDuplicates)
+            this.handleSwitchingThings(actions, switchingThings)
           }
         } else {
           this.reply('Sorry, I didn\'t understand that')
