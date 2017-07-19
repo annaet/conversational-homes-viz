@@ -96,6 +96,7 @@ export default {
         console.log('switchingThings', switchingThings)
         console.log('states', states)
         console.log('actions', actions)
+        console.log('controlConcepts', controlConcepts)
         let thingMentioned = openingThings.length || switchingThings.length
 
         if (questions.length && states.length && (thingMentioned || controlConcepts.length)) {
@@ -171,6 +172,24 @@ export default {
         handleThings()
       }
     },
+    getCurrentState (instance) {
+      let refs = instance.referring_instances
+
+      let maxTimestamp = 0
+      let currentState
+
+      // Look through previous states
+      if (refs && refs['applies to']) {
+        for (let sc of refs['applies to']) {
+          if (sc.timestamp > maxTimestamp) {
+            maxTimestamp = sc.timestamp
+            currentState = sc['current state']
+          }
+        }
+      }
+
+      return currentState
+    },
     handleQuestion (questions, openingThings, switchingThings, states, controlConcepts) {
       for (let question of questions) {
         console.log(question)
@@ -183,21 +202,7 @@ export default {
                   API.getInstance(switchingThing._id, this.user).then(response => {
                     let instance = response.body
                     console.log(instance)
-                    let refs = instance.referring_instances
-
-                    let maxTimestamp = 0
-                    let currentState
-
-                    // Look through previous states
-                    if (refs && refs['applies to']) {
-                      for (let sc of refs['applies to']) {
-                        if (sc.timestamp > maxTimestamp) {
-                          maxTimestamp = sc.timestamp
-                          currentState = sc['current state']
-                        }
-                      }
-                    }
-
+                    let currentState = this.getCurrentState(instance)
                     console.log(currentState)
                     this.reply('Current state of ' + switchingThing._id + ' is ' + currentState)
                   })
@@ -207,21 +212,7 @@ export default {
                   API.getInstance(openingThing._id, this.user).then(response => {
                     let instance = response.body
                     console.log(instance)
-                    let refs = instance.referring_instances
-
-                    let maxTimestamp = 0
-                    let currentState
-
-                    // Look through previous states
-                    if (refs && refs['applies to']) {
-                      for (let sc of refs['applies to']) {
-                        if (sc.timestamp > maxTimestamp) {
-                          maxTimestamp = sc.timestamp
-                          currentState = sc['current state']
-                        }
-                      }
-                    }
-
+                    let currentState = this.getCurrentState(instance)
                     console.log(currentState)
                     this.reply('The current state of the ' + openingThing._id + ' is ' + currentState.toLowerCase())
                   })
@@ -237,21 +228,7 @@ export default {
                 for (let inst of insts) {
                   API.getInstance(inst._id, this.user).then(response => {
                     let instance = response.body
-                    let refs = instance.referring_instances
-
-                    let maxTimestamp = 0
-                    let currentState
-
-                    // Look through previous states
-                    if (refs && refs['applies to']) {
-                      for (let sc of refs['applies to']) {
-                        if (sc.timestamp > maxTimestamp) {
-                          maxTimestamp = sc.timestamp
-                          currentState = sc['current state']
-                        }
-                      }
-                    }
-
+                    let currentState = this.getCurrentState(instance)
                     this.reply('The current state of the ' + inst._id + ' is ' + currentState.toLowerCase())
                   })
                 }
@@ -331,20 +308,7 @@ export default {
           for (let switchingThing of switchingThings) {
             API.getInstance(switchingThing._id, this.user).then(response => {
               let instance = response.body
-              let refs = instance.referring_instances
-
-              let maxTimestamp = 0
-              let prevState
-
-              // Look through previous states
-              if (refs && refs['applies to']) {
-                for (let sc of refs['applies to']) {
-                  if (sc.timestamp > maxTimestamp) {
-                    maxTimestamp = sc.timestamp
-                    prevState = sc['current state']
-                  }
-                }
-              }
+              let prevState = this.getCurrentState(instance)
 
               // Set state change type
               let stateChangeType = 'state change'
