@@ -42,7 +42,7 @@ module.exports = {
     cssSourceMap: false
   },
   ceStore: {
-    url: 'ce-store-20170719092855479.eu-gb.mybluemix.net',
+    url: 'ce-store-conv.eu-gb.mybluemix.net',
     store: 'DEFAULT'
   }
 }
