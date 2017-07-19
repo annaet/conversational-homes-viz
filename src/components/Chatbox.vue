@@ -4,7 +4,8 @@
       <div v-for="message in messages"
            :class="{ sent: message.sender === 'user', received: message.sender !== 'user' }">
         <div class="message">
-          {{message.text}}
+          <div>{{message.text}}</div>
+          <img v-if="message.image" :src="message.image">
         </div>
       </div>
     </div>
@@ -43,6 +44,10 @@ export default {
         'switch off',
         'turn on',
         'turn off'
+      ],
+      viewingMessages: [
+        'show',
+        'view'
       ]
     }
   },
@@ -85,6 +90,7 @@ export default {
       let openingThings = []
       let switchingThings = []
       let temperatureSensors = []
+      let cameras = []
       let states = []
       let controlConcepts = []
       let rooms = []
@@ -109,14 +115,16 @@ export default {
         console.log('openingThings', openingThings)
         console.log('switchingThings', switchingThings)
         console.log('temperatureSensors', temperatureSensors)
+        console.log('cameras', cameras)
         console.log('states', states)
         console.log('actions', actions)
         console.log('controlConcepts', controlConcepts)
         console.log('rooms', rooms)
 
-        let thingMentioned = openingThings.length || switchingThings.length || temperatureSensors.length
+        let thingMentioned = openingThings.length || switchingThings.length || cameras.length
 
-        if (questions.length && (thingMentioned || controlConcepts.length)) {
+        if (questions.length && (thingMentioned ||
+            temperatureSensors.length || controlConcepts.length)) {
           this.handleQuestion(questions, openingThings, switchingThings, temperatureSensors, states, controlConcepts)
         } else if (actions.length && thingMentioned) {
           if (openingThings.length) {
@@ -124,6 +132,9 @@ export default {
           }
           if (switchingThings.length) {
             this.handleSwitchingThings(actions, switchingThings)
+          }
+          if (cameras.length) {
+            this.handleCameras(actions, cameras)
           }
         } else {
           this.reply('Sorry, I didn\'t understand that')
@@ -145,6 +156,9 @@ export default {
             }
             if (entity._concept.indexOf('switching thing') > -1) {
               switchingThings.push(entity)
+            }
+            if (entity._concept.indexOf('camera') > -1) {
+              cameras.push(entity)
             }
             if (entity._concept.indexOf('state') > -1) {
               states.push(entity)
@@ -415,10 +429,18 @@ export default {
         }
       }
     },
-    reply (message) {
+    handleCameras (actions, cameras) {
+      console.log('handle cameras')
+      for (let camera of cameras) {
+        console.log(camera)
+        this.reply('Here\'s the latest image from the ' + camera._id + ':', camera['static image url'])
+      }
+    },
+    reply (message, imageUrl) {
       this.messages.push({
         sender: 'hudson',
-        text: message
+        text: message,
+        image: imageUrl
       })
 
       let sentences = new CE.Sentences()
@@ -451,6 +473,11 @@ export default {
         margin: 15px 15px 0;
         padding: 16px 24px;
         display: inline-block;
+
+        img {
+          margin-top: 20px;
+          max-width: 100%;
+        }
       }
 
       .received {
